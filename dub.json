@@ -1,0 +1,8 @@
+{
+	"name": "entityd",
+	"description": "An open-source D entity-component-system.",
+	"copyright": "Copyright © 2014, jzhu98",
+	"authors": ["jzhu98"],
+	"dependencies": {
+	}
+}
