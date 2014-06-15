@@ -217,41 +217,16 @@ public:
 
     bool hasComponent(C)(ID id)
     {
-        /*writeln("Checking for component " ~ C.toString());*/
         assert(valid(id));
-
-        /*writefln("Component array length: %s", _components.length);
-        writefln("Has component type? %s", _components.length > Component.type!C());
-        writefln("Component array is instantiated? %s", _components[Component.type!C()].length > 0);
-        writefln("Index value: %s", _components[Component.type!C()][id.index]);*/
-        if (Component.type!C() >= _components.length)
-        {
-            return false;
-        }
-        else if (_components[Component.type!C()][id.index] is null)
-        {
-            return false;
-        }
-        else
-        {
-            return true;
-        }
+        return (Component.type!C() < _components.length &&
+            _components[Component.type!C()][id.index] !is null);
     }
 
     C component(C)(ID id)
     {
         writeln("Getting component " ~ C.toString());
-        if (hasComponent!C(id))
-        {
-            /*writeln("Component exists.");
-            writefln("Component is not null? %s", (_components[Component.type!C()][id.index] !is null));
-            writefln("Component type: %s", _components[Component.type!C()][id.index].toString());*/
-            return cast(C) _components[Component.type!C()][id.index];
-        }
-        else
-        {
-            throw new Exception("Component" ~ C.toString() ~ "does not exist.");
-        }
+        assert(hasComponent!C(id));
+        return cast(C) _components[Component.type!C()][id.index];
     }
 
     bool valid(ID id)
@@ -262,9 +237,14 @@ public:
 private:
     void accomodateComponent(C)()
     {
-        while (Component.type!C() >= _components.length)
+        auto extension = Component.type!C() - _components.length + 1;
+        if (extension > 0)
         {
-            _components.insert(make!(Array!Component)(new Component[_indexCounter]));
+            _components.length = _components.length + extension;
+            for (ulong i = _components.length - extension; i < _components.length; i++)
+            {
+                _components[i] = new Component[_indexCounter];
+            }
         }
     }
 
@@ -279,8 +259,8 @@ private:
     uint[] _entityTags;
 
     // A nested array of entity components.
-    Array!(Array!Component) _components;
+    Component[][] _components;
 
     // Bitmasks of each entity's components.
-    Array!(Array!bool) _componentMasks;
+    bool[][] _componentMasks;
 }
