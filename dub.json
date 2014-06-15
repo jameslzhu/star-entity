@@ -4,6 +4,7 @@
 	"copyright": "Copyright © 2014, jzhu98",
 	"authors": ["jzhu98"],
 	"targetPath": "bin",
+	"buildRequirements": ["disallowOptimization"],
 	"dependencies": {
 	}
 }
