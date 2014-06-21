@@ -41,7 +41,6 @@ public:
         {
             auto id1 = Entity.ID(0x0000000100000002UL);
             auto id2 = Entity.ID(3U, 4U);
-
             assert(id1.index == 1U);
             assert(id2.index == 3U);
         }
@@ -56,7 +55,6 @@ public:
         {
             auto id1 = Entity.ID((12UL << 32) + 13UL);
             auto id2 = Entity.ID(210U, 5U);
-
             assert(id1.tag == 13U);
             assert(id2.tag == 5U);
         }
@@ -138,27 +136,6 @@ public:
         return _manager.component!C(_id);
     }
 
-    unittest
-    {
-        class TestComponent : Component
-        {
-            this(int value)
-            {
-                _value = value;
-            }
-            int _value;
-        }
-
-        auto manager = new EntityManager();
-        auto entity = manager.create();
-        auto component = new TestComponent(2);
-
-        entity.add(component);
-        auto returnedComponent = entity.component!TestComponent();
-        assert(returnedComponent._value == 2);
-        assert(component._value == returnedComponent._value);
-    }
-
     /// Check if the entity has a specific component.
     bool hasComponent(C)()
     {
@@ -219,12 +196,6 @@ public:
         _indexCounter = 0U;
     }
 
-    /// Destructor.
-    ~this()
-    {
-        reset();
-    }
-
     /// Create an entity.
     Entity create()
     out (result)
@@ -236,20 +207,10 @@ public:
         uint index, tag;
         if (_freeIndices.empty())
         {
-            index = _indexCounter++;
-            debug writefln("Index: %s, index counter: %s", index, _indexCounter);
-            _entityTags.reserve(_indexCounter);
-            _entityTags.length = _entityTags.capacity;
-            _componentMasks.reserve(_indexCounter);
-            _componentMasks.length = _componentMasks.capacity;
-            debug writefln("Entity tags length: %s", _entityTags.length);
+            index = _indexCounter;
+            accomodateEntity(index);
+            _indexCounter++;
             _entityTags[index] = tag = 1;
-
-            foreach (component; _components)
-            {
-                component.reserve(_indexCounter);
-                component.length = component.capacity;
-            }
         }
         else
         {
@@ -258,8 +219,7 @@ public:
             tag = _entityTags[index];
         }
 
-        auto entity = new Entity(this, Entity.ID(index, tag));
-        return entity;
+        return new Entity(this, Entity.ID(index, tag));
     }
 
     /// Return the entity with the specified index.
@@ -275,12 +235,6 @@ public:
     body
     {
         return new Entity(this, Entity.ID(index, _entityTags[index]));
-    }
-
-    /// Check if this entity handle is valid - is not invalidated and
-    bool valid(Entity.ID id) const
-    {
-        return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
     }
 
     /// Destroy the specified entity and invalidate all handles to it.
@@ -309,6 +263,12 @@ public:
             // Clear the component bitmask
             _componentMasks[index].clear();
         }
+    }
+
+    /// Check if this entity handle is valid - is not invalidated and
+    bool valid(Entity.ID id) const
+    {
+        return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
     }
 
     /// Add a component to the specified entity.
@@ -345,7 +305,7 @@ public:
     }
 
     /// Check if the entity has the specified component.
-    bool hasComponent(C)(const Entity.ID id)
+    bool hasComponent(C)(const Entity.ID id) const
     in
     {
         assert(valid(id));
@@ -364,12 +324,10 @@ public:
     }
     body
     {
-        debug writefln("Components length: %s, index: %s", _components.length, id.index);
-        debug writefln("Component %s type: %s", C.classinfo.name, Component.type!C());
-        debug writefln("Test component length: %s", _components[Component.type!C()].length);
         return cast(inout(C)) _components[Component.type!C()][id.index];
     }
 
+    /// Return the component mask (bool array) of this entity.
     inout(bool[]) componentMask(Entity.ID id) inout
     in
     {
@@ -381,13 +339,79 @@ public:
     }
 
     /// Delete all entities and components.
-    void reset()
+    void clear()
     {
+        debug writeln("Resetting entity manager.");
         _indexCounter = 0U;
         _freeIndices.clear();
-        _entityTags.clear();
-        _components.clear();
-        _componentMasks.clear();
+        _entityTags = null;
+        _components = null;
+        _componentMasks = null;
+    }
+
+    unittest
+    {
+        class Position : Component
+        {
+            this(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+            int x, y;
+        }
+
+        class Velocity : Component
+        {
+            this(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+            int x, y;
+        }
+
+        class Gravity : Component
+        {
+            this(double acc)
+            {
+                accel = acc;
+            }
+            double accel;
+        }
+
+        auto manager = new EntityManager();
+
+        auto entity1 = manager.create();
+        entity1.add(new Position(2, 1));
+
+        auto entity2 = manager.create();
+        entity2.add(new Velocity(-1, -3));
+
+        auto entity3 = manager.create();
+        entity3.add(new Gravity(-9.8));
+
+        auto position = entity1.component!Position();
+        auto velocity = entity2.component!Velocity();
+        auto gravity = entity3.component!Gravity();
+
+        assert(position.x == 2 && position.y == 1);
+        assert(velocity.x == -1 && velocity.y == -3);
+        assert(std.math.abs(-9.8 - gravity.accel) < 1e-9);
+
+        manager.clear();
+        assert(!entity1.valid());
+        assert(!entity2.valid());
+        assert(!entity3.valid());
+        assert(manager._indexCounter == 0);
+        assert(manager._freeIndices.empty);
+        assert(manager._entityTags.length == 0);
+        assert(manager._components.length == 0);
+        assert(manager._componentMasks.length == 0);
+
+        auto entity4 = manager.create();
+        assert(entity4.valid());
+        assert(entity4.id.index == 0);
     }
 
 private:
@@ -416,10 +440,18 @@ private:
     {
         if (index >= _indexCounter)
         {
-            _entityTags.reserve(_indexCounter + 1);
+            _entityTags.reserve(index + 1);
             _entityTags.length = _entityTags.capacity;
-            _componentMasks.reserve(_indexCounter + 1);
+
+            _componentMasks.reserve(index + 1);
             _componentMasks.length = _componentMasks.capacity;
+
+            foreach (ref component; _components)
+            {
+                component.reserve(index + 1);
+                component.length = component.capacity;
+            }
+
         }
     }
 

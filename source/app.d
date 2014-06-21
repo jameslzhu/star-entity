@@ -2,21 +2,15 @@ import std.stdio, std.container, std.math;
 
 import star.component, star.entity;
 
-class Test : Component
+void main(string[] args)
 {
-    int value = 10;
-}
-
-class Test2 : Component
-{
-    int val = 20;
-}
-
-int main(string[] args)
-{
-    auto manager = new EntityManager();
+    /*auto manager = new EntityManager();
 
     auto entity = manager.create();
+    writeln(entity.id.index);
+    auto entity2 = manager.get(0);
+
+    writeln(entity == entity);
 
     entity.add(new Test());
     entity.add(new Test2());
@@ -25,7 +19,7 @@ int main(string[] args)
     auto testComponent2 = entity.component!Test2();
 
     writeln(testComponent.value);
-    writeln(testComponent2.val);
+    writeln(testComponent2.val);*/
 
-    return 0;
+    writeln("Main program.");
 }
