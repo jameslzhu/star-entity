@@ -219,6 +219,7 @@ public:
         _indexCounter = 0U;
     }
 
+    /// Destructor.
     ~this()
     {
         reset();
@@ -235,15 +236,19 @@ public:
         uint index, tag;
         if (_freeIndices.empty())
         {
-            _entityTags.reserve(_indexCounter + 1);
-            _componentMasks.reserve(_indexCounter + 1);
-
             index = _indexCounter++;
+            debug writefln("Index: %s, index counter: %s", index, _indexCounter);
+            _entityTags.reserve(_indexCounter);
+            _entityTags.length = _entityTags.capacity;
+            _componentMasks.reserve(_indexCounter);
+            _componentMasks.length = _componentMasks.capacity;
+            debug writefln("Entity tags length: %s", _entityTags.length);
             _entityTags[index] = tag = 1;
 
             foreach (component; _components)
             {
                 component.reserve(_indexCounter);
+                component.length = component.capacity;
             }
         }
         else
@@ -359,10 +364,13 @@ public:
     }
     body
     {
-        return cast(C) _components[Component.type!C()][id.index];
+        debug writefln("Components length: %s, index: %s", _components.length, id.index);
+        debug writefln("Component %s type: %s", C.classinfo.name, Component.type!C());
+        debug writefln("Test component length: %s", _components[Component.type!C()].length);
+        return cast(inout(C)) _components[Component.type!C()][id.index];
     }
 
-    inout(Array!bool) componentMask(Entity.ID id) inout
+    inout(bool[]) componentMask(Entity.ID id) inout
     in
     {
         assert(valid(id));
@@ -385,24 +393,34 @@ public:
 private:
     void accomodateComponent(C)()
     {
-        auto extension = Component.type!C() - _components.length + 1;
-        if (extension > 0)
+        _components.reserve(Component.type!C() + 1);
+        _components.length = _components.capacity;
+        foreach (ref component; _components)
         {
-            _components.reserve(Component.type!C() + 1);
-            foreach (ref component; _components)
-            {
-                component.reserve(_indexCounter);
-            }
-            foreach (ref componentMask; _componentMasks)
-            {
-                componentMask.reserve(_components.length);
-            }
+            component.reserve(_indexCounter);
+            component.length = component.capacity;
+        }
+        foreach (ref componentMask; _componentMasks)
+        {
+            componentMask.reserve(_components.length);
+            componentMask.length = componentMask.capacity;
         }
     }
 
     void setComponent(C)(Entity.ID id, Component component)
     {
         _components[Component.type!C()][id.index] = component;
+    }
+
+    void accomodateEntity(uint index)
+    {
+        if (index >= _indexCounter)
+        {
+            _entityTags.reserve(_indexCounter + 1);
+            _entityTags.length = _entityTags.capacity;
+            _componentMasks.reserve(_indexCounter + 1);
+            _componentMasks.length = _componentMasks.capacity;
+        }
     }
 
     invariant()
@@ -418,11 +436,11 @@ private:
     SList!uint _freeIndices;
 
     // Tracks entity versions (incremented when entity is destroyed) for validity checking.
-    Array!uint _entityTags;
+    uint[] _entityTags;
 
     // A nested array of entity components, ordered by component and then entity index.
-    Array!(Array!Component) _components;
+    Component[][] _components;
 
-    // Bitmasks of each entity's components.
-    Array!(Array!bool) _componentMasks;
+    // Bitmasks of each entity's components, ordered by entity and then by component bit.
+    bool[][] _componentMasks;
 }
