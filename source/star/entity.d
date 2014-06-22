@@ -37,26 +37,10 @@ public:
             return cast(uint)(_id >> 32UL);
         }
 
-        unittest
-        {
-            auto id1 = Entity.ID(0x0000000100000002UL);
-            auto id2 = Entity.ID(3U, 4U);
-            assert(id1.index == 1U);
-            assert(id2.index == 3U);
-        }
-
         /// Return the tag of the Entity.ID.
         @property inout(uint) tag() inout
         {
             return cast(uint) (_id);
-        }
-
-        unittest
-        {
-            auto id1 = Entity.ID((12UL << 32) + 13UL);
-            auto id2 = Entity.ID(210U, 5U);
-            assert(id1.tag == 13U);
-            assert(id2.tag == 5U);
         }
 
         @property string toString()
@@ -68,16 +52,6 @@ public:
         bool opEquals()(auto ref const Entity.ID other) const
         {
             return _id == other._id;
-        }
-
-        unittest
-        {
-            auto id1 = Entity.ID(12U, 32U);
-            auto id2 = Entity.ID(12U, 32U);
-            auto id3 = Entity.ID(13U, 32U);
-            assert(id1 == id2);
-            assert(id1 != id3);
-            assert(id2 != id3);
         }
 
         /// Comparison operators (check for greater / less than).
@@ -97,7 +71,33 @@ public:
             }
         }
 
-        unittest
+        unittest // index()
+        {
+            auto id1 = Entity.ID(0x0000000100000002UL);
+            auto id2 = Entity.ID(3U, 4U);
+            assert(id1.index == 1U);
+            assert(id2.index == 3U);
+        }
+
+        unittest // tag()
+        {
+            auto id1 = Entity.ID((12UL << 32) + 13UL);
+            auto id2 = Entity.ID(210U, 5U);
+            assert(id1.tag == 13U);
+            assert(id2.tag == 5U);
+        }
+
+        unittest // opEquals()
+        {
+            auto id1 = Entity.ID(12U, 32U);
+            auto id2 = Entity.ID(12U, 32U);
+            auto id3 = Entity.ID(13U, 32U);
+            assert(id1 == id2);
+            assert(id1 != id3);
+            assert(id2 != id3);
+        }
+
+        unittest // opCmp()
         {
             auto id1 = Entity.ID(1U, 10U);
             auto id2 = Entity.ID(1U, 11U);
@@ -184,6 +184,12 @@ public:
     {
         _manager = null;
         _id = INVALID;
+    }
+
+    unittest
+    {
+        auto entity = new Entity(null, Entity.INVALID);
+        assert(!entity.valid());
     }
 
     /// Equals operator (check for equality).
@@ -411,6 +417,7 @@ public:
 
     unittest
     {
+        Component.clear();
         class Position : Component
         {
             this(int x, int y)
@@ -488,6 +495,47 @@ public:
         return _componentMasks[id.index];
     }
 
+    bool[] componentMask(C)()
+    {
+        bool[] mask = new bool[_components.length];
+        auto type = Component.type!C();
+        if (type >= mask.length)
+        {
+            mask.length = type + 1;
+        }
+        mask[type] = true;
+        return mask;
+    }
+
+    bool[] componentMask(C1, Components...)()
+    {
+        bool[] mask = componentMask!C1()[];
+        mask[] |= componentMask!Components()[];
+        return mask;
+    }
+
+    unittest
+    {
+        Component.clear();
+        class Position : Component { }
+        class Velocity : Component { }
+        class Gravity : Component { }
+
+        auto manager = new EntityManager();
+        auto entity = manager.create();
+        entity.add(new Position());
+        entity.add(new Velocity());
+        entity.add(new Gravity());
+
+        assert(manager.componentMask!(Position)() == [true, false, false]);
+        assert(manager.componentMask!(Position, Velocity, Gravity)() == [true, true, true]);
+    }
+
+    @property size_t capacity()
+    {
+        return _indexCounter;
+    }
+
     /// Delete all entities and components.
     void clear()
     {
@@ -500,6 +548,7 @@ public:
 
     unittest
     {
+        Component.clear();
         class Position : Component
         {
             this(int x, int y)
@@ -589,18 +638,23 @@ private:
     {
         if (index >= _indexCounter)
         {
-            _entityTags.reserve(index + 1);
-            _entityTags.length = _entityTags.capacity;
-
-            _componentMasks.reserve(index + 1);
-            _componentMasks.length = _componentMasks.capacity;
-
-            foreach (ref component; _components)
+            if (_entityTags.length <= index)
             {
-                component.reserve(index + 1);
-                component.length = component.capacity;
+                _entityTags.length = index + 1;
             }
 
+            if (_componentMasks.length <= index)
+            {
+                _componentMasks.length = index + 1;
+            }
+
+            if (_components.length > 0 && _components[0].length <= index)
+            {
+                foreach (ref component; _components)
+                {
+                    component.length = index + 1;
+                }
+            }
         }
     }
 
