@@ -5,7 +5,7 @@ debug import std.stdio;
 class Component
 {
     static ulong[string] types;
-    static ulong type(C)()
+    static ulong type(C)() @trusted
     {
         string name = C.classinfo.name;
         if ((name in types) is null)
@@ -16,7 +16,7 @@ class Component
         return types[name];
     }
 
-    static void clear()
+    static void clear() @trusted
     {
         types.clear();
     }

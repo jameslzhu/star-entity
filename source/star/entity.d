@@ -32,18 +32,18 @@ public:
         }
 
         /// Return the index of the Entity.ID.
-        @property inout(uint) index() inout
+        @property inout(uint) index() inout @safe
         {
             return cast(uint)(_id >> 32UL);
         }
 
         /// Return the tag of the Entity.ID.
-        @property inout(uint) tag() inout
+        @property inout(uint) tag() inout @safe
         {
             return cast(uint) (_id);
         }
 
-        @property string toString()
+        @property string toString() @safe
         {
             return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
         }
@@ -123,7 +123,7 @@ public:
     }
 
     /// Return the entity id.
-    @property inout(Entity.ID) id() inout
+    @property inout(Entity.ID) id() inout @safe
     {
         return _id;
     }
@@ -136,38 +136,38 @@ public:
     }
 
     /// Return the component added to this entity.
-    inout(C) component(C)() inout
+    inout(C) component(C)() inout @safe
     {
         return _manager.component!C(_id);
     }
 
     /// Check if the entity has a specific component.
-    bool hasComponent(C)()
+    bool hasComponent(C)() @safe
     {
         return _manager.hasComponent!C(_id);
     }
 
     /// Add a component to the entity.
-    void add(C)(C component)
+    void add(C)(C component) @safe
     {
         _manager.addComponent!C(_id, component);
     }
 
     /// Remove the component if the entity has it.
-    void remove(C)()
+    void remove(C)() @safe
     {
         _manager.remove!C(_id);
     }
 
     /// Destroy this entity and invalidate all handles to this entity.
-    void destroy()
+    void destroy() @safe
     {
         _manager.destroy(_id);
         invalidate();
     }
 
     /// Check if this handle is valid (points to the entity with the same tag).
-    bool valid()
+    bool valid() @safe
     {
         if (_manager is null)
         {
@@ -180,7 +180,7 @@ public:
     }
 
     /// Invalidate this entity handle (but not other handles).
-    void invalidate()
+    void invalidate() @safe
     {
         _manager = null;
         _id = INVALID;
@@ -261,7 +261,7 @@ public:
     }
 
     /// Check if this entity handle is valid - is not invalidated or outdated
-    bool valid(Entity.ID id) const
+    bool valid(Entity.ID id) const @safe
     {
         return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
     }
@@ -274,7 +274,9 @@ public:
     }
 
     /// Create an entity.
-    Entity create()
+    /// TODO: `this` is marked as system function. If `this` becomes @trusted
+    ///       or @safe, mark create() as @safe instead of @trusted.
+    Entity create() @trusted
     out (result)
     {
         assert(valid(result.id));
@@ -319,7 +321,7 @@ public:
     }
 
     /// Return the entity with the specified index.
-    Entity get(Entity.ID id)
+    Entity get(Entity.ID id) @trusted
     in
     {
         assert(valid(id));
@@ -341,7 +343,7 @@ public:
     }
 
     /// Destroy the specified entity and invalidate all handles to it.
-    void destroy(Entity.ID id)
+    void destroy(Entity.ID id) @safe
     out
     {
         assert(!valid(id));
@@ -398,7 +400,7 @@ public:
     }
 
     /// Add a component to the specified entity.
-    void addComponent(C)(Entity.ID id, C component)
+    void addComponent(C)(Entity.ID id, C component) @safe
     in
     {
         assert(valid(id));
@@ -447,7 +449,7 @@ public:
     }
 
     /// Remove a component from the entity (no effects if it is not present).
-    void removeComponent(C)(Entity.ID id)
+    void removeComponent(C)(Entity.ID id) @safe
     out
     {
         assert(!hasComponent!C(id));
@@ -462,7 +464,7 @@ public:
     }
 
     /// Check if the entity has the specified component.
-    bool hasComponent(C)(const Entity.ID id) const
+    bool hasComponent(C)(const Entity.ID id) const @safe
     in
     {
         assert(valid(id));
@@ -474,7 +476,7 @@ public:
     }
 
     /// Return the component associated with this entity.
-    inout(C) component(C)(Entity.ID id) inout
+    inout(C) component(C)(Entity.ID id) inout @safe
     in
     {
         assert(valid(id));
@@ -485,7 +487,7 @@ public:
     }
 
     /// Return the component mask (bool array) of this entity.
-    inout(bool[]) componentMask(Entity.ID id) inout
+    inout(bool[]) componentMask(Entity.ID id) inout @safe
     in
     {
         assert(valid(id));
@@ -495,7 +497,7 @@ public:
         return _componentMasks[id.index];
     }
 
-    bool[] componentMask(C)()
+    bool[] componentMask(C)() @safe
     {
         bool[] mask = new bool[_components.length];
         auto type = Component.type!C();
@@ -507,7 +509,7 @@ public:
         return mask;
     }
 
-    bool[] componentMask(C1, Components...)()
+    bool[] componentMask(C1, Components...)() @safe
     {
         bool[] mask = componentMask!C1()[];
         mask[] |= componentMask!Components()[];
@@ -531,13 +533,13 @@ public:
         assert(manager.componentMask!(Position, Velocity, Gravity)() == [true, true, true]);
     }
 
-    @property size_t capacity()
+    @property size_t capacity() @safe
     {
         return _indexCounter;
     }
 
     /// Delete all entities and components.
-    void clear()
+    void clear() @safe
     {
         _indexCounter = 0U;
         _freeIndices.clear();
@@ -613,42 +615,56 @@ public:
     }
 
 private:
-    void accomodateComponent(C)()
+    /// TODO: fix lines 633 - 639.
+    void accomodateComponent(C)() @safe
     {
-        _components.reserve(Component.type!C() + 1);
-        _components.length = _components.capacity;
-        foreach (ref component; _components)
+        auto type = Component.type!C();
+        // Expand component array (new component - first dimension widens).
+        if (_components.length < type + 1)
         {
-            component.reserve(_indexCounter);
-            component.length = component.capacity;
+            _components.length = type + 1;
+            _components[$ - 1].length = _indexCounter;
         }
-        foreach (ref componentMask; _componentMasks)
+
+        // Expand all component masks to include new component.
+        if (!_componentMasks.empty() && _componentMasks.front().length < type + 1)
         {
-            componentMask.reserve(_components.length);
-            componentMask.length = componentMask.capacity;
+            foreach (ref componentMask; _componentMasks)
+            {
+                componentMask.length = type + 1;
+            }
         }
     }
 
-    void setComponent(C)(Entity.ID id, Component component)
+    void setComponent(C)(Entity.ID id, C component) @trusted
     {
+        debug writefln("Components length: %s", _components.length);
+        debug writefln("Type: %s", Component.type!C());
+        debug writefln("Component type length: %s", _components[Component.type!C()].length);
+        debug writefln("Index: %s", id.index);
+        debug writefln("Index counter: %s", _indexCounter);
+        debug writeln("--------");
         _components[Component.type!C()][id.index] = component;
     }
 
-    void accomodateEntity(uint index)
+    void accomodateEntity(uint index) @safe
     {
         if (index >= _indexCounter)
         {
+            // Expand entity tags.
             if (_entityTags.length <= index)
             {
                 _entityTags.length = index + 1;
             }
 
+            // Expand component mask array.
             if (_componentMasks.length <= index)
             {
                 _componentMasks.length = index + 1;
             }
 
-            if (_components.length > 0 && _components[0].length <= index)
+            // Expand all component arrays (new entity - second dimension widens).
+            if (!_components.empty() && _components.front().length < index + 1)
             {
                 foreach (ref component; _components)
                 {
