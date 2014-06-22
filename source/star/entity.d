@@ -59,6 +59,11 @@ public:
             assert(id2.tag == 5U);
         }
 
+        @property string toString()
+        {
+            return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
+        }
+
         /// Equals operator (check for equality).
         bool opEquals()(auto ref const Entity.ID other) const
         {
@@ -181,6 +186,59 @@ public:
         _id = INVALID;
     }
 
+    /// Equals operator (check for equality).
+    override bool opEquals(Object o) const
+    {
+        auto other = cast(Entity) o;
+        return _id == other._id && _manager == other._manager;
+    }
+
+    unittest
+    {
+        auto entity1 = new Entity(null, Entity.ID(1, 1));
+        auto entity2 = new Entity(null, Entity.ID(1, 1));
+        auto entity3 = new Entity(null, Entity.ID(1, 2));
+        auto entity4 = new Entity(null, Entity.ID(2, 1));
+
+        assert(entity1 == entity1);
+        assert(entity1 == entity2);
+        assert(entity1 != entity3);
+        assert(entity1 != entity4);
+
+        assert(entity2 == entity1);
+        assert(entity2 == entity2);
+        assert(entity2 != entity3);
+        assert(entity2 != entity4);
+
+        assert(entity3 != entity1);
+        assert(entity3 != entity2);
+        assert(entity3 == entity3);
+        assert(entity3 != entity4);
+
+        assert(entity4 != entity1);
+        assert(entity4 != entity2);
+        assert(entity4 != entity3);
+        assert(entity4 == entity4);
+    }
+
+    override int opCmp(Object o) const
+    {
+        auto other = cast(Entity) o;
+        return _id.opCmp(other._id);
+    }
+
+    unittest
+    {
+        auto entity1 = new Entity(null, Entity.ID(0, 1));
+        auto entity2 = new Entity(null, Entity.ID(10, 230));
+        auto entity3 = new Entity(null, Entity.ID(11, 200));
+
+        assert(entity1 < entity2);
+        assert(entity1 <= entity3);
+        assert(entity3 > entity2);
+        assert(entity2 >= entity1);
+    }
+
 private:
     EntityManager _manager;
     Entity.ID _id;
@@ -196,6 +254,19 @@ public:
         _indexCounter = 0U;
     }
 
+    /// Check if this entity handle is valid - is not invalidated or outdated
+    bool valid(Entity.ID id) const
+    {
+        return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
+    }
+
+    unittest
+    {
+        auto manager = new EntityManager();
+        assert(!manager.valid(Entity.INVALID));
+        assert(manager.valid(manager.create().id));
+    }
+
     /// Create an entity.
     Entity create()
     out (result)
@@ -205,15 +276,20 @@ public:
     body
     {
         uint index, tag;
+
+        // Expand containers to accomodate new index
         if (_freeIndices.empty())
         {
-            index = _indexCounter;
-            accomodateEntity(index);
-            _indexCounter++;
+            accomodateEntity(_indexCounter);
+            index = _indexCounter++;
+
+            // Uninitialized value is 0, so any entities with tag 0 are invalid
             _entityTags[index] = tag = 1;
         }
+        // Fill unused index, no resizing necessary
         else
         {
+            // Remove index from free indices list
             index = _freeIndices.front();
             _freeIndices.removeFront();
             tag = _entityTags[index];
@@ -222,11 +298,25 @@ public:
         return new Entity(this, Entity.ID(index, tag));
     }
 
+    unittest
+    {
+        auto manager = new EntityManager();
+        auto entity1 = manager.create();
+        auto entity2 = manager.create();
+
+        assert(entity1.valid());
+        assert(entity2.valid());
+        assert(entity1 != entity2);
+
+        entity1.invalidate();
+        assert(!entity1.valid());
+    }
+
     /// Return the entity with the specified index.
-    Entity get(uint index)
+    Entity get(Entity.ID id)
     in
     {
-        assert(index < _indexCounter);
+        assert(valid(id));
     }
     out (result)
     {
@@ -234,7 +324,14 @@ public:
     }
     body
     {
-        return new Entity(this, Entity.ID(index, _entityTags[index]));
+        return new Entity(this, Entity.ID(id.index, _entityTags[id.index]));
+    }
+
+    unittest
+    {
+        auto manager = new EntityManager();
+        auto entity = manager.create();
+        assert(entity == manager.get(entity.id));
     }
 
     /// Destroy the specified entity and invalidate all handles to it.
@@ -265,10 +362,33 @@ public:
         }
     }
 
-    /// Check if this entity handle is valid - is not invalidated and
-    bool valid(Entity.ID id) const
+    unittest
     {
-        return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
+        auto manager = new EntityManager();
+        auto entity1 = manager.create();
+        auto entity2 = manager.create();
+        auto entity3 = manager.create();
+
+        assert(entity1.id == Entity.ID(0, 1));
+        assert(entity2.id == Entity.ID(1, 1));
+        assert(entity3.id == Entity.ID(2, 1));
+
+        // Two methods of destroying entities
+        manager.destroy(entity1.id);
+        entity2.destroy();
+
+        assert(!entity1.valid());
+        assert(!entity2.valid());
+        assert(entity3.valid());
+
+        auto entity4 = manager.create();
+        auto entity5 = manager.create();
+
+        assert(entity3.valid());
+        assert(entity4.valid());
+        assert(entity5.valid());
+        assert(entity4.id == Entity.ID(1, 2));
+        assert(entity5.id == Entity.ID(0, 2));
     }
 
     /// Add a component to the specified entity.
@@ -287,6 +407,36 @@ public:
         accomodateComponent!C();
         setComponent!C(id, component);
         _componentMasks[id.index][Component.type!C()] = true;
+    }
+
+    unittest
+    {
+        class Position : Component
+        {
+            this(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+            int x, y;
+        }
+
+        class Jump : Component
+        {
+            bool onGround = true;
+        }
+
+        auto manager = new EntityManager();
+        auto entity = manager.create();
+        auto position = new Position(1001, -19);
+        auto jump = new Jump();
+
+        entity.add(position);
+        manager.addComponent(entity.id, jump);
+        assert(entity.hasComponent!Position());
+        assert(entity.hasComponent!Jump());
+        assert(position == entity.component!Position());
+        assert(jump == manager.component!Jump(entity.id));
     }
 
     /// Remove a component from the entity (no effects if it is not present).
@@ -341,7 +491,6 @@ public:
     /// Delete all entities and components.
     void clear()
     {
-        debug writeln("Resetting entity manager.");
         _indexCounter = 0U;
         _freeIndices.clear();
         _entityTags = null;
