@@ -1,6 +1,5 @@
 module star.entity;
 
-import core.vararg;
 import std.stdio;
 import std.container;
 import std.array;
@@ -8,6 +7,8 @@ import std.array;
 debug import std.stdio;
 
 import star.component;
+
+/// TODO: implement EntityManager range
 
 /// An entity an aggregate of components (pure data), accessible with an id.
 class Entity
@@ -37,10 +38,26 @@ public:
             return cast(uint)(_id >> 32UL);
         }
 
+        unittest
+        {
+            auto id1 = Entity.ID(0x0000000100000002UL);
+            auto id2 = Entity.ID(3U, 4U);
+            assert(id1.index == 1U);
+            assert(id2.index == 3U);
+        }
+
         /// Return the tag of the Entity.ID.
         @property inout(uint) tag() inout @safe
         {
             return cast(uint) (_id);
+        }
+
+        unittest
+        {
+            auto id1 = Entity.ID((12UL << 32) + 13UL);
+            auto id2 = Entity.ID(210U, 5U);
+            assert(id1.tag == 13U);
+            assert(id2.tag == 5U);
         }
 
         @property string toString() @safe
@@ -52,6 +69,16 @@ public:
         bool opEquals()(auto ref const Entity.ID other) const
         {
             return _id == other._id;
+        }
+
+        unittest // opEquals()
+        {
+            auto id1 = Entity.ID(12U, 32U);
+            auto id2 = Entity.ID(12U, 32U);
+            auto id3 = Entity.ID(13U, 32U);
+            assert(id1 == id2);
+            assert(id1 != id3);
+            assert(id2 != id3);
         }
 
         /// Comparison operators (check for greater / less than).
@@ -71,33 +98,7 @@ public:
             }
         }
 
-        unittest // index()
-        {
-            auto id1 = Entity.ID(0x0000000100000002UL);
-            auto id2 = Entity.ID(3U, 4U);
-            assert(id1.index == 1U);
-            assert(id2.index == 3U);
-        }
-
-        unittest // tag()
-        {
-            auto id1 = Entity.ID((12UL << 32) + 13UL);
-            auto id2 = Entity.ID(210U, 5U);
-            assert(id1.tag == 13U);
-            assert(id2.tag == 5U);
-        }
-
-        unittest // opEquals()
-        {
-            auto id1 = Entity.ID(12U, 32U);
-            auto id2 = Entity.ID(12U, 32U);
-            auto id3 = Entity.ID(13U, 32U);
-            assert(id1 == id2);
-            assert(id1 != id3);
-            assert(id2 != id3);
-        }
-
-        unittest // opCmp()
+        unittest
         {
             auto id1 = Entity.ID(1U, 10U);
             auto id2 = Entity.ID(1U, 11U);
@@ -258,6 +259,38 @@ public:
     this()
     {
         _indexCounter = 0U;
+        _numEntities = 0U;
+    }
+
+    struct Range
+    {
+        private this(EntityManager manager, uint index = 0)
+        {
+            _manager = manager;
+            _index = index;
+        }
+
+        @property bool empty() const
+        {
+            return _index >= _manager.capacity;
+        }
+
+        @property Entity.ID front()
+        {
+            return _manager.id(_index);
+        }
+
+        void popFront()
+        {
+            do
+            {
+                _index++;
+            }
+            while (_manager.componentMask(_manager.id(_index))[] == _manager.componentMask!()());
+        }
+
+        private uint _index;
+        private EntityManager _manager;
     }
 
     /// Check if this entity handle is valid - is not invalidated or outdated
@@ -271,6 +304,37 @@ public:
         auto manager = new EntityManager();
         assert(!manager.valid(Entity.INVALID));
         assert(manager.valid(manager.create().id));
+    }
+
+    @property size_t length() const @safe
+    {
+        return _numEntities;
+    }
+
+    @property size_t capacity() const @safe
+    {
+        return _indexCounter;
+    }
+
+    @property bool empty() const @safe
+    {
+        return _numEntities == 0;
+    }
+
+    int opApply(int delegate(ref Entity) dg)
+    {
+        int result = 0;
+
+        for (uint i = 0; i < capacity; i++)
+        {
+            Entity entity = entity(id(i));
+            result = dg(entity);
+            if (result)
+            {
+                break;
+            }
+        }
+        return result;
     }
 
     /// Create an entity.
@@ -303,6 +367,7 @@ public:
             tag = _entityTags[index];
         }
 
+        _numEntities++;
         return new Entity(this, Entity.ID(index, tag));
     }
 
@@ -321,7 +386,28 @@ public:
     }
 
     /// Return the entity with the specified index.
-    Entity get(Entity.ID id) @trusted
+    Entity.ID id(uint index) @trusted
+    in
+    {
+        assert(index < _indexCounter);
+    }
+    out (result)
+    {
+        assert(valid(result));
+    }
+    body
+    {
+        return Entity.ID(index, _entityTags[index]);
+    }
+
+    unittest
+    {
+        auto manager = new EntityManager();
+        auto entity = manager.create();
+        assert(entity.id == manager.id(entity.id.index));
+    }
+
+    Entity entity(Entity.ID id) @trusted
     in
     {
         assert(valid(id));
@@ -332,14 +418,14 @@ public:
     }
     body
     {
-        return new Entity(this, Entity.ID(id.index, _entityTags[id.index]));
+        return new Entity(this, id);
     }
 
     unittest
     {
         auto manager = new EntityManager();
         auto entity = manager.create();
-        assert(entity == manager.get(entity.id));
+        assert(entity == manager.entity(entity.id));
     }
 
     /// Destroy the specified entity and invalidate all handles to it.
@@ -367,6 +453,8 @@ public:
 
             // Clear the component bitmask
             _componentMasks[index].clear();
+
+            _numEntities--;
         }
     }
 
@@ -414,12 +502,11 @@ public:
     {
         accomodateComponent!C();
         setComponent!C(id, component);
-        _componentMasks[id.index][Component.type!C()] = true;
+        _componentMasks[id.index][type!C()] = true;
     }
 
     unittest
     {
-        Component.clear();
         class Position : Component
         {
             this(int x, int y)
@@ -459,7 +546,7 @@ public:
         if (hasComponent!C(id))
         {
             setComponent(id, null);
-            _componentMasks[id.index][Component.type!C()] = false;
+            _componentMasks[id.index][type!C()] = false;
         }
     }
 
@@ -471,8 +558,7 @@ public:
     }
     body
     {
-        return (Component.type!C() < _components.length &&
-            component!C(id) !is null);
+        return (hasType!C() && component!C(id) !is null);
     }
 
     /// Return the component associated with this entity.
@@ -483,11 +569,11 @@ public:
     }
     body
     {
-        return cast(inout(C)) _components[Component.type!C()][id.index];
+        return cast(inout(C)) _components[type!C()][id.index];
     }
 
     /// Return the component mask (bool array) of this entity.
-    inout(bool[]) componentMask(Entity.ID id) inout @safe
+    bool[] componentMask(Entity.ID id) @safe
     in
     {
         assert(valid(id));
@@ -497,28 +583,37 @@ public:
         return _componentMasks[id.index];
     }
 
-    bool[] componentMask(C)() @safe
+    bool[] componentMask(Components...)() @safe
+    in
+    {
+        foreach(C; Components)
+        {
+            assert(type!C() < _components.length);
+        }
+    }
+    body
     {
         bool[] mask = new bool[_components.length];
-        auto type = Component.type!C();
-        if (type >= mask.length)
-        {
-            mask.length = type + 1;
-        }
-        mask[type] = true;
-        return mask;
-    }
 
-    bool[] componentMask(C1, Components...)() @safe
-    {
-        bool[] mask = componentMask!C1()[];
-        mask[] |= componentMask!Components()[];
+        ulong maxType = 0;
+        foreach (C; Components)
+        {
+            auto type = type!C();
+            if (type > maxType)
+            {
+                maxType = type;
+            }
+        }
+
+        foreach (C; Components)
+        {
+            mask[type!C()] = true;
+        }
         return mask;
     }
 
     unittest
     {
-        Component.clear();
         class Position : Component { }
         class Velocity : Component { }
         class Gravity : Component { }
@@ -533,24 +628,20 @@ public:
         assert(manager.componentMask!(Position, Velocity, Gravity)() == [true, true, true]);
     }
 
-    @property size_t capacity() @safe
-    {
-        return _indexCounter;
-    }
-
     /// Delete all entities and components.
     void clear() @safe
     {
         _indexCounter = 0U;
+        _numEntities = 0U;
         _freeIndices.clear();
         _entityTags = null;
         _components = null;
+        _componentTypes.clear();
         _componentMasks = null;
     }
 
     unittest
     {
-        Component.clear();
         class Position : Component
         {
             this(int x, int y)
@@ -618,7 +709,8 @@ private:
     /// TODO: fix lines 633 - 639.
     void accomodateComponent(C)() @safe
     {
-        auto type = Component.type!C();
+        addType!C();
+        auto type = type!C();
         // Expand component array (new component - first dimension widens).
         if (_components.length < type + 1)
         {
@@ -638,13 +730,13 @@ private:
 
     void setComponent(C)(Entity.ID id, C component) @trusted
     {
-        debug writefln("Components length: %s", _components.length);
-        debug writefln("Type: %s", Component.type!C());
-        debug writefln("Component type length: %s", _components[Component.type!C()].length);
+        /*debug writefln("Components length: %s", _components.length);
+        debug writefln("Type: %s", type!C());
+        debug writefln("Component type length: %s", _components[type!C()].length);
         debug writefln("Index: %s", id.index);
         debug writefln("Index counter: %s", _indexCounter);
-        debug writeln("--------");
-        _components[Component.type!C()][id.index] = component;
+        debug writeln("--------");*/
+        _components[type!C()][id.index] = component;
     }
 
     void accomodateEntity(uint index) @safe
@@ -674,11 +766,39 @@ private:
         }
     }
 
+    ulong type(C)() inout @safe
+    in
+    {
+        assert(hasType!C());
+    }
+    body
+    {
+        return _componentTypes[C.classinfo.name];
+    }
+
+    ulong addType(C)() @trusted
+    {
+        string name = C.classinfo.name;
+        if (!hasType!C())
+        {
+            _componentTypes[name] = _componentTypes.length;
+            _componentTypes.rehash();
+        }
+        return _componentTypes[name];
+    }
+
+    ulong hasType(C)() const @safe
+    {
+        return (C.classinfo.name in _componentTypes) !is null;
+    }
+
     invariant()
     {
         assert(_entityTags.capacity >= _indexCounter);
         assert(_componentMasks.capacity >= _indexCounter);
     }
+
+    uint _numEntities;
 
     // Tracks the next unused entity index.
     uint _indexCounter;
@@ -691,6 +811,9 @@ private:
 
     // A nested array of entity components, ordered by component and then entity index.
     Component[][] _components;
+
+    // A map associating each component class with a unique unsigned integer.
+    ulong[string] _componentTypes;
 
     // Bitmasks of each entity's components, ordered by entity and then by component bit.
     bool[][] _componentMasks;
