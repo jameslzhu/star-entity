@@ -5,9 +5,6 @@ import std.container;
 import std.array;
 
 debug import std.stdio;
-
-import star.component;
-
 /// TODO: implement EntityManager range
 
 /// An entity an aggregate of components (pure data), accessible with an id.
@@ -507,7 +504,7 @@ public:
 
     unittest
     {
-        class Position : Component
+        class Position
         {
             this(int x, int y)
             {
@@ -517,7 +514,7 @@ public:
             int x, y;
         }
 
-        class Jump : Component
+        class Jump
         {
             bool onGround = true;
         }
@@ -614,9 +611,9 @@ public:
 
     unittest
     {
-        class Position : Component { }
-        class Velocity : Component { }
-        class Gravity : Component { }
+        class Position { }
+        class Velocity { }
+        class Gravity { }
 
         auto manager = new EntityManager();
         auto entity = manager.create();
@@ -642,7 +639,7 @@ public:
 
     unittest
     {
-        class Position : Component
+        class Position
         {
             this(int x, int y)
             {
@@ -652,7 +649,7 @@ public:
             int x, y;
         }
 
-        class Velocity : Component
+        class Velocity
         {
             this(int x, int y)
             {
@@ -662,7 +659,7 @@ public:
             int x, y;
         }
 
-        class Gravity : Component
+        class Gravity
         {
             this(double acc)
             {
@@ -730,12 +727,6 @@ private:
 
     void setComponent(C)(Entity.ID id, C component) @trusted
     {
-        /*debug writefln("Components length: %s", _components.length);
-        debug writefln("Type: %s", type!C());
-        debug writefln("Component type length: %s", _components[type!C()].length);
-        debug writefln("Index: %s", id.index);
-        debug writefln("Index counter: %s", _indexCounter);
-        debug writeln("--------");*/
         _components[type!C()][id.index] = component;
     }
 
@@ -810,7 +801,7 @@ private:
     uint[] _entityTags;
 
     // A nested array of entity components, ordered by component and then entity index.
-    Component[][] _components;
+    Object[][] _components;
 
     // A map associating each component class with a unique unsigned integer.
     ulong[string] _componentTypes;

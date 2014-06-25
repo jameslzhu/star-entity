@@ -1,6 +1,6 @@
 import std.stdio, std.container, std.math;
 
-import star.component, star.entity;
+import star.entity;
 
 void main(string[] args)
 {
