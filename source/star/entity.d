@@ -319,7 +319,12 @@ public:
         return _numEntities == 0;
     }
 
-    int opApply(int delegate(ref Entity) dg)
+    Range opSlice()
+    {
+        return Range(this);
+    }
+
+    /*int opApply(int delegate(ref Entity) dg)
     {
         int result = 0;
 
@@ -333,7 +338,7 @@ public:
             }
         }
         return result;
-    }
+    }*/
 
     unittest
     {
