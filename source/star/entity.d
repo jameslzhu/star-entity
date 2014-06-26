@@ -8,128 +8,128 @@ debug import std.stdio;
 
 // TODO: implement EntityManager range
 
+/// An id encapsulates an index (unique ulong in an entity manager)
+/// and a tag (to check if the entity is in sync (valid) with the manager).
+struct ID
+{
+public:
+    /// An invalid id, used for invalidating entities.
+    static immutable ID INVALID = ID(0, 0);
+
+    /// Construct an id from a 64-bit integer:
+    /// A concatenated 32-bit index and 32-bit tag.
+    this(ulong id) @safe
+    {
+        _id = id;
+    }
+
+    /// Construct an id from a 32-bit index and a 32-bit tag.
+    this(uint index, uint tag) @safe
+    {
+        this(cast(ulong) index << 32UL | (cast(ulong) tag));
+    }
+
+    /// Return the index of the ID.
+    inout(uint) index() inout @property @safe
+    {
+        return cast(uint)(_id >> 32UL);
+    }
+
+    unittest
+    {
+        auto id1 = ID(0x0000000100000002UL);
+        auto id2 = ID(3U, 4U);
+        assert(id1.index == 1U);
+        assert(id2.index == 3U);
+    }
+
+    /// Return the tag of the ID.
+    inout(uint) tag() inout @property @safe
+    {
+        return cast(uint) (_id);
+    }
+
+    unittest
+    {
+        auto id1 = ID((12UL << 32) + 13UL);
+        auto id2 = ID(210U, 5U);
+        assert(id1.tag == 13U);
+        assert(id2.tag == 5U);
+    }
+
+    string toString() @safe
+    {
+        return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
+    }
+
+    /// Equals operator (check for equality).
+    bool opEquals()(auto ref const ID other) const @safe
+    {
+        return _id == other._id;
+    }
+
+    unittest
+    {
+        auto id1 = ID(12U, 32U);
+        auto id2 = ID(12U, 32U);
+        auto id3 = ID(13U, 32U);
+        assert(id1 == id2);
+        assert(id1 != id3);
+        assert(id2 != id3);
+    }
+
+    /// Comparison operators (check for greater / less than).
+    int opCmp(ref const ID other) const @safe
+    {
+        if (_id > other._id)
+        {
+            return 1;
+        }
+        else if (_id == other._id)
+        {
+            return 0;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+
+    unittest
+    {
+        auto id1 = ID(1U, 10U);
+        auto id2 = ID(1U, 11U);
+        auto id3 = ID(2U, 1U);
+        assert(id1 < id2);
+        assert(id1 <= id3);
+        assert(id3 >= id2);
+        assert(id3 > id1);
+    }
+
+private:
+    ulong _id;
+}
+
 /// An entity an aggregate of components (pure data), accessible with an id.
 class Entity
 {
 public:
-    /// An id encapsulates an index (unique ulong in an entity manager)
-    /// and a tag (to check if the entity is in sync (valid) with the manager).
-    struct ID
-    {
-    public:
-        /// Construct an id from a 64-bit integer:
-        /// A concatenated 32-bit index and 32-bit tag.
-        this(ulong id)
-        {
-            _id = id;
-        }
-
-        /// Construct an id from a 32-bit index and a 32-bit tag.
-        this(uint index, uint tag)
-        {
-            this(cast(ulong) index << 32UL | (cast(ulong) tag));
-        }
-
-        /// Return the index of the Entity.ID.
-        @property inout(uint) index() inout @safe
-        {
-            return cast(uint)(_id >> 32UL);
-        }
-
-        unittest
-        {
-            auto id1 = Entity.ID(0x0000000100000002UL);
-            auto id2 = Entity.ID(3U, 4U);
-            assert(id1.index == 1U);
-            assert(id2.index == 3U);
-        }
-
-        /// Return the tag of the Entity.ID.
-        @property inout(uint) tag() inout @safe
-        {
-            return cast(uint) (_id);
-        }
-
-        unittest
-        {
-            auto id1 = Entity.ID((12UL << 32) + 13UL);
-            auto id2 = Entity.ID(210U, 5U);
-            assert(id1.tag == 13U);
-            assert(id2.tag == 5U);
-        }
-
-        @property string toString() @safe
-        {
-            return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
-        }
-
-        /// Equals operator (check for equality).
-        bool opEquals()(auto ref const Entity.ID other) const
-        {
-            return _id == other._id;
-        }
-
-        unittest // opEquals()
-        {
-            auto id1 = Entity.ID(12U, 32U);
-            auto id2 = Entity.ID(12U, 32U);
-            auto id3 = Entity.ID(13U, 32U);
-            assert(id1 == id2);
-            assert(id1 != id3);
-            assert(id2 != id3);
-        }
-
-        /// Comparison operators (check for greater / less than).
-        int opCmp(ref const Entity.ID other) const
-        {
-            if (_id > other._id)
-            {
-                return 1;
-            }
-            else if (_id == other._id)
-            {
-                return 0;
-            }
-            else
-            {
-                return -1;
-            }
-        }
-
-        unittest
-        {
-            auto id1 = Entity.ID(1U, 10U);
-            auto id2 = Entity.ID(1U, 11U);
-            auto id3 = Entity.ID(2U, 1U);
-            assert(id1 < id2);
-            assert(id1 <= id3);
-            assert(id3 >= id2);
-            assert(id3 > id1);
-        }
-
-    private:
-        ulong _id;
-    }
-
-    /// An invalid id, used for invalidating entities.
-    static immutable Entity.ID INVALID = Entity.ID(0, 0);
-
-    /// Construct an entity with a manager reference and an Entity.ID.
-    this(EntityManager manager, Entity.ID id)
+    /// Construct an entity with a manager reference and an ID.
+    this(EntityManager manager, ID id) @safe
     {
         _manager = manager;
         _id = id;
     }
 
     /// Return the entity id.
-    @property inout(Entity.ID) id() inout @safe
+    inout(ID) id() inout @property @safe
     {
         return _id;
     }
 
     unittest
     {
-        auto entity = new Entity(null, Entity.ID(1, 2));
+        auto entity = new Entity(null, ID(1, 2));
         assert(entity.id.index == 1);
         assert(entity.id.tag == 2);
     }
@@ -182,12 +182,12 @@ public:
     void invalidate() @safe
     {
         _manager = null;
-        _id = INVALID;
+        _id = ID.INVALID;
     }
 
     unittest
     {
-        auto entity = new Entity(null, Entity.INVALID);
+        auto entity = new Entity(null, ID.INVALID);
         assert(!entity.valid());
     }
 
@@ -200,10 +200,10 @@ public:
 
     unittest
     {
-        auto entity1 = new Entity(null, Entity.ID(1, 1));
-        auto entity2 = new Entity(null, Entity.ID(1, 1));
-        auto entity3 = new Entity(null, Entity.ID(1, 2));
-        auto entity4 = new Entity(null, Entity.ID(2, 1));
+        auto entity1 = new Entity(null, ID(1, 1));
+        auto entity2 = new Entity(null, ID(1, 1));
+        auto entity3 = new Entity(null, ID(1, 2));
+        auto entity4 = new Entity(null, ID(2, 1));
 
         assert(entity1 == entity1);
         assert(entity1 == entity2);
@@ -226,7 +226,7 @@ public:
         assert(entity4 == entity4);
     }
 
-    override int opCmp(Object o) const
+    override int opCmp(Object o) const @safe
     {
         auto other = cast(Entity) o;
         return _id.opCmp(other._id);
@@ -234,9 +234,9 @@ public:
 
     unittest
     {
-        auto entity1 = new Entity(null, Entity.ID(0, 1));
-        auto entity2 = new Entity(null, Entity.ID(10, 230));
-        auto entity3 = new Entity(null, Entity.ID(11, 200));
+        auto entity1 = new Entity(null, ID(0, 1));
+        auto entity2 = new Entity(null, ID(10, 230));
+        auto entity3 = new Entity(null, ID(11, 200));
 
         assert(entity1 < entity2);
         assert(entity1 <= entity3);
@@ -246,7 +246,7 @@ public:
 
 private:
     EntityManager _manager;
-    Entity.ID _id;
+    ID _id;
 }
 
 /// Manages entities and their associated components.
@@ -262,18 +262,23 @@ public:
 
     struct Range
     {
-        private this(EntityManager manager, uint index = 0)
+        private this(EntityManager manager, uint index = 0)  @safe
         {
             _manager = manager;
             _index = index;
         }
 
-        @property bool empty() const
+        size_t length() const @property @safe
+        {
+            return _manager.count;
+        }
+
+        bool empty() const @property
         {
             return _index >= _manager.capacity;
         }
 
-        @property Entity front()
+        Entity front() @property
         {
             return _manager.entity(_index);
         }
@@ -291,35 +296,34 @@ public:
         private EntityManager _manager;
     }
 
-    /// Check if this entity handle is valid - is not invalidated or outdated
-    bool valid(Entity.ID id) const @safe
-    {
-        return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
-    }
-
     unittest
     {
         auto manager = new EntityManager();
-        assert(!manager.valid(Entity.INVALID));
+        assert(!manager.valid(ID.INVALID));
         assert(manager.valid(manager.create().id));
     }
 
-    @property size_t length() const @safe
+    size_t count() const @property @safe
     {
         return _numEntities;
     }
 
-    @property size_t capacity() const @safe
+    size_t free() const @property @safe
+    {
+        return capacity - count;
+    }
+
+    size_t capacity() const @property @safe
     {
         return _indexCounter;
     }
 
-    @property bool empty() const @safe
+    bool empty() const @property @safe
     {
         return _numEntities == 0;
     }
 
-    Range opSlice()
+    Range opSlice() @safe
     {
         return Range(this);
     }
@@ -338,7 +342,7 @@ public:
             }
         }
         return result;
-    }*/
+    }
 
     unittest
     {
@@ -377,80 +381,10 @@ public:
                 assert(0);
             }
         }
-    }
-
-    /// Create an entity.
-    /// TODO: `this` is marked as system function. If `this` becomes @trusted
-    ///       or @safe, mark create() as @safe instead of @trusted.
-    Entity create() @trusted
-    out (result)
-    {
-        assert(valid(result.id));
-    }
-    body
-    {
-        uint index, tag;
-
-        // Expand containers to accomodate new index
-        if (_freeIndices.empty())
-        {
-            index = _indexCounter;
-            accomodateEntity(_indexCounter);
-
-            // Uninitialized value is 0, so any entities with tag 0 are invalid
-            _entityTags[index] = tag = 1;
-        }
-        // Fill unused index, no resizing necessary
-        else
-        {
-            // Remove index from free indices list
-            index = _freeIndices.front();
-            _freeIndices.removeFront();
-            tag = _entityTags[index];
-        }
-
-        _numEntities++;
-        return new Entity(this, Entity.ID(index, tag));
-    }
-
-    unittest
-    {
-        auto manager = new EntityManager();
-        auto entity1 = manager.create();
-        auto entity2 = manager.create();
-
-        assert(entity1.valid());
-        assert(entity2.valid());
-        assert(entity1 != entity2);
-
-        entity1.invalidate();
-        assert(!entity1.valid());
-    }
-
-    /// Return the id with the specified index.
-    Entity.ID id(uint index) @trusted
-    in
-    {
-        assert(index < _indexCounter);
-    }
-    out (result)
-    {
-        assert(valid(result));
-    }
-    body
-    {
-        return Entity.ID(index, _entityTags[index]);
-    }
-
-    unittest
-    {
-        auto manager = new EntityManager();
-        auto entity = manager.create();
-        assert(entity.id == manager.id(entity.id.index));
-    }
+    }*/
 
     /// Return the entity with the specified index.
-    Entity entity(uint index) @trusted
+    Entity entity(uint index) @safe
     {
         return entity(id(index));
     }
@@ -463,7 +397,7 @@ public:
     }
 
     /// Return the entity with the specified (and valid) id.
-    Entity entity(Entity.ID id) @trusted
+    Entity entity(ID id) @safe
     in
     {
         assert(valid(id));
@@ -484,8 +418,82 @@ public:
         assert(entity == manager.entity(entity.id));
     }
 
+
+    /// Return the id with the specified index.
+    ID id(uint index) @safe
+    in
+    {
+        assert(index < _indexCounter);
+    }
+    out (result)
+    {
+        assert(valid(result));
+    }
+    body
+    {
+        return ID(index, _entityTags[index]);
+    }
+
+    unittest
+    {
+        auto manager = new EntityManager();
+        auto entity = manager.create();
+        assert(entity.id == manager.id(entity.id.index));
+    }
+
+    /// Check if this entity handle is valid - is not invalidated or outdated
+    bool valid(ID id) const @safe
+    {
+        return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
+    }
+
+    /// Create an entity in a free slot.
+    Entity create() @safe
+    out (result)
+    {
+        assert(valid(result.id));
+    }
+    body
+    {
+        uint index;
+
+        // Expand containers to accomodate new index
+        if (_freeIndices.empty())
+        {
+            index = _indexCounter;
+            accomodateEntity(_indexCounter);
+
+            // Uninitialized value is 0, so any entities with tag 0 are invalid
+            _entityTags[index] = 1;
+        }
+        // Fill unused index, no resizing necessary
+        else
+        {
+            // Remove index from free indices list
+            index = _freeIndices.front();
+            _freeIndices.removeFront();
+        }
+
+        _numEntities++;
+        return new Entity(this, ID(index, _entityTags[index]));
+    }
+
+    unittest
+    {
+        auto manager = new EntityManager();
+        auto entity1 = manager.create();
+        auto entity2 = manager.create();
+
+        assert(entity1.valid());
+        assert(entity2.valid());
+        assert(entity1 != entity2);
+
+        entity1.invalidate();
+        assert(!entity1.valid());
+    }
+
     /// Destroy the specified entity and invalidate all handles to it.
-    void destroy(Entity.ID id) @safe
+    void destroy(ID id) @safe
     out
     {
         assert(!valid(id));
@@ -499,7 +507,7 @@ public:
             _entityTags[index]++;
 
             // Add index to free list
-            _freeIndices.insertFront(index);
+            _freeIndices.insert(index);
 
             // Remove all components
             foreach(component; _components)
@@ -521,9 +529,9 @@ public:
         auto entity2 = manager.create();
         auto entity3 = manager.create();
 
-        assert(entity1.id == Entity.ID(0, 1));
-        assert(entity2.id == Entity.ID(1, 1));
-        assert(entity3.id == Entity.ID(2, 1));
+        assert(entity1.id == ID(0, 1));
+        assert(entity2.id == ID(1, 1));
+        assert(entity3.id == ID(2, 1));
 
         // Two methods of destroying entities
         manager.destroy(entity1.id);
@@ -539,16 +547,15 @@ public:
         assert(entity3.valid());
         assert(entity4.valid());
         assert(entity5.valid());
-        assert(entity4.id == Entity.ID(1, 2));
-        assert(entity5.id == Entity.ID(0, 2));
+        assert(entity4.id == ID(1, 2));
+        assert(entity5.id == ID(0, 2));
     }
 
     /// Add a component to the specified entity.
-    void addComponent(C)(Entity.ID id, C component) @trusted // change to @safe
+    void addComponent(C)(ID id, C component) @safe
     in
     {
         assert(valid(id));
-        assert(!hasComponent!C(id));
     }
     out
     {
@@ -562,7 +569,7 @@ public:
     }
 
     /// Remove a component from the entity (no effects if it is not present).
-    void removeComponent(C)(Entity.ID id) @safe
+    void removeComponent(C)(ID id) @safe
     out
     {
         assert(!hasComponent!C(id));
@@ -577,7 +584,7 @@ public:
     }
 
     /// Check if the entity has the specified component.
-    bool hasComponent(C)(const Entity.ID id) const @safe
+    bool hasComponent(C)(const ID id) const @safe
     in
     {
         assert(valid(id));
@@ -588,7 +595,7 @@ public:
     }
 
     /// Return the component associated with this entity.
-    inout(C) component(C)(Entity.ID id) inout @safe
+    inout(C) component(C)(ID id) inout @safe
     in
     {
         assert(valid(id));
@@ -629,7 +636,7 @@ public:
     }
 
     /// Return the component mask (bool array) of this entity.
-    bool[] componentMask(Entity.ID id) @safe
+    bool[] componentMask(ID id) @safe
     in
     {
         assert(valid(id));
@@ -765,26 +772,29 @@ private:
     /// TODO: fix lines 633 - 639.
     void accomodateComponent(C)() @safe
     {
-        addType!C();
-        auto type = type!C();
-        // Expand component array (new component - first dimension widens).
-        if (_components.length < type + 1)
+        if (!hasType!C())
         {
-            _components.length = type + 1;
-            _components[$ - 1].length = _indexCounter;
-        }
+            addType!C();
+            auto type = type!C();
 
-        // Expand all component masks to include new component.
-        if (!_componentMasks.empty() && _componentMasks.front().length < type + 1)
-        {
-            foreach (ref componentMask; _componentMasks)
+            // Expand component array (new component - first dimension widens).
+            if (_components.length < type + 1)
             {
-                componentMask.length = type + 1;
+                _components ~= new Object[_indexCounter];
+            }
+
+            // Expand all component masks to include new component.
+            if (!_componentMasks.empty() && _componentMasks.front().length < type + 1)
+            {
+                foreach (ref componentMask; _componentMasks)
+                {
+                    componentMask.length = type + 1;
+                }
             }
         }
     }
 
-    void setComponent(C)(Entity.ID id, C component) @safe
+    void setComponent(C)(ID id, C component) @safe
     {
         _components[type!C()][id.index] = component;
     }
@@ -802,8 +812,7 @@ private:
             // Expand component mask array.
             if (_componentMasks.length < index + 1)
             {
-                _componentMasks.length = index + 1;
-                _componentMasks[$ - 1].length = _components.length;
+                _componentMasks ~= new bool[_components.length];
             }
 
             // Expand all component arrays (new entity - second dimension widens).
@@ -828,7 +837,7 @@ private:
         return _componentTypes[C.classinfo.name];
     }
 
-    ulong addType(C)() @trusted
+    void addType(C)() @trusted
     {
         string name = C.classinfo.name;
         if (!hasType!C())
@@ -836,7 +845,6 @@ private:
             _componentTypes[name] = _componentTypes.length;
             _componentTypes.rehash();
         }
-        return _componentTypes[name];
     }
 
     bool hasType(C)() const @safe
@@ -846,13 +854,19 @@ private:
 
     invariant()
     {
-        assert(_entityTags.capacity >= _indexCounter);
-        assert(_componentMasks.capacity >= _indexCounter);
+        assert(_numEntities <= _indexCounter);
+        assert(_entityTags.length == _indexCounter);
+        assert(_componentMasks.length == _indexCounter);
         assert(_components.length == _componentTypes.length);
 
         foreach(componentMask; _componentMasks)
         {
             assert(componentMask.length == _components.length);
+        }
+
+        foreach(ref componentArray; _components)
+        {
+            assert(componentArray.length == _indexCounter);
         }
     }
 
