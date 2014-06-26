@@ -1,8 +1,7 @@
 module star.entity;
 
-import std.stdio;
 import std.container;
-import std.array;
+import std.algorithm : filter;
 
 debug import std.stdio;
 
@@ -283,24 +282,149 @@ public:
             return _manager.entity(_index);
         }
 
-        void popFront()
+        void popFront() @safe
         {
-            do
+            if (_index < _manager.capacity)
             {
                 _index++;
             }
-            while (_manager.componentMask(_manager.id(_index))[] == _manager.componentMask!()());
+            else
+            {
+                throw new Exception("Entity manager range out of bounds error");
+            }
         }
 
-        private uint _index;
+        Range save() @safe
+        {
+            return Range(_manager, _index);
+        }
+
         private EntityManager _manager;
+        private uint _index;
+    }
+
+    Range opSlice() @safe
+    {
+        return Range(this);
     }
 
     unittest
     {
-        auto manager = new EntityManager();
-        assert(!manager.valid(ID.INVALID));
-        assert(manager.valid(manager.create().id));
+        class Test
+        {
+            this(int x)
+            {
+                y = x;
+            }
+            int y;
+        }
+        auto manager = new EntityManager;
+        auto entity1 = manager.create();
+        auto entity2 = manager.create();
+
+        entity1.add(new Test(3061));
+        entity2.add(new Test(2015));
+
+        foreach(entity; manager[])
+        {
+            if (entity == entity1)
+            {
+                assert(entity1.component!Test().y == 3061);
+            }
+            else if (entity == entity2)
+            {
+                assert(entity2.component!Test().y == 2015);
+            }
+            else
+            {
+                assert(0);
+            }
+        }
+    }
+
+    /// Create a range with only the entities with the specified components.
+    auto entities(Components...)()
+    {
+        auto mask = componentMask!Components();
+        bool hasComponents(Entity entity)
+        {
+            typeof(mask) combinedMask;
+            combinedMask[] = componentMask(entity.id)[] & mask[];
+            return combinedMask[] == mask[];
+        }
+
+        return this[].filter!(hasComponents)();
+    }
+
+    unittest
+    {
+        class Position
+        {
+            this(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+            int x, y;
+        }
+
+        class Velocity
+        {
+            this(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+            int x, y;
+        }
+
+        class Gravity
+        {
+            this(double acc)
+            {
+                accel = acc;
+            }
+            double accel;
+        }
+
+        auto manager = new EntityManager;
+
+        auto entity1 = manager.create();
+        entity1.add(new Position(2, 1));
+        entity1.add(new Velocity(15, 4));
+
+        auto entity2 = manager.create();
+        entity2.add(new Velocity(-1, -3));
+        entity2.add(new Gravity(10));
+
+        auto entity3 = manager.create();
+        entity3.add(new Gravity(-9.8));
+        entity3.add(new Position(14, -9));
+
+        auto positionEntities = manager.entities!Position();
+        auto velocityEntities = manager.entities!Velocity();
+        auto gravityEntities = manager.entities!Gravity();
+        auto physicsEntities = manager.entities!(Position, Velocity, Gravity)();
+
+        foreach (pos; positionEntities)
+        {
+            assert(pos == entity1 || pos == entity3);
+            assert(pos != entity2);
+        }
+
+        foreach(vel; velocityEntities)
+        {
+            assert(vel == entity1 || vel == entity2);
+            assert(vel != entity3);
+        }
+
+        foreach(grav; gravityEntities)
+        {
+            assert(grav == entity2 || grav == entity3);
+            assert(grav != entity1);
+        }
+
+        assert(physicsEntities.empty());
     }
 
     size_t count() const @property @safe
@@ -323,66 +447,6 @@ public:
         return _numEntities == 0;
     }
 
-    Range opSlice() @safe
-    {
-        return Range(this);
-    }
-
-    /*int opApply(int delegate(ref Entity) dg)
-    {
-        int result = 0;
-
-        for (uint i = 0; i < capacity; i++)
-        {
-            Entity entity = entity(id(i));
-            result = dg(entity);
-            if (result)
-            {
-                break;
-            }
-        }
-        return result;
-    }
-
-    unittest
-    {
-        class Position
-        {
-            this(int x, int y)
-            {
-                this.x = x;
-                this.y = y;
-            }
-            int x, y;
-        }
-
-        auto manager = new EntityManager();
-        auto entity1 = manager.create();
-        entity1.add(new Position(100, -203));
-        auto entity2 = manager.create();
-        entity2.add(new Position(-14, 8));
-
-        foreach(entity; manager)
-        {
-            if (entity == entity1)
-            {
-                auto position = entity.component!Position();
-                assert(position.x == 100);
-                assert(position.y == -203);
-            }
-            else if (entity == entity2)
-            {
-                auto position = entity.component!Position();
-                assert(position.x == -14);
-                assert(position.y == 8);
-            }
-            else
-            {
-                assert(0);
-            }
-        }
-    }*/
-
     /// Return the entity with the specified index.
     Entity entity(uint index) @safe
     {
@@ -391,7 +455,7 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager();
+        auto manager = new EntityManager;
         auto entity = manager.create();
         assert(entity == manager.entity(entity.id.index));
     }
@@ -413,11 +477,10 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager();
+        auto manager = new EntityManager;
         auto entity = manager.create();
         assert(entity == manager.entity(entity.id));
     }
-
 
     /// Return the id with the specified index.
     ID id(uint index) @safe
@@ -436,7 +499,7 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager();
+        auto manager = new EntityManager;
         auto entity = manager.create();
         assert(entity.id == manager.id(entity.id.index));
     }
@@ -445,6 +508,13 @@ public:
     bool valid(ID id) const @safe
     {
         return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
+    }
+
+    unittest
+    {
+        auto manager = new EntityManager;
+        assert(!manager.valid(ID.INVALID));
+        assert(manager.valid(manager.create().id));
     }
 
     /// Create an entity in a free slot.
@@ -480,7 +550,7 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager();
+        auto manager = new EntityManager;
         auto entity1 = manager.create();
         auto entity2 = manager.create();
 
@@ -524,7 +594,7 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager();
+        auto manager = new EntityManager;
         auto entity1 = manager.create();
         auto entity2 = manager.create();
         auto entity3 = manager.create();
@@ -552,7 +622,7 @@ public:
     }
 
     /// Add a component to the specified entity.
-    void addComponent(C)(ID id, C component) @safe
+    void addComponent(C)(ID id, C component) @trusted
     in
     {
         assert(valid(id));
@@ -565,7 +635,7 @@ public:
     {
         accomodateComponent!C();
         setComponent!C(id, component);
-        _componentMasks[id.index][type!C()] = true;
+        setMask!C(id, true);
     }
 
     /// Remove a component from the entity (no effects if it is not present).
@@ -579,7 +649,7 @@ public:
         if (hasComponent!C(id))
         {
             setComponent(id, null);
-            _componentMasks[id.index][type!C()] = false;
+            setMask!C(id, false);
         }
     }
 
@@ -622,7 +692,7 @@ public:
             bool onGround = true;
         }
 
-        auto manager = new EntityManager();
+        auto manager = new EntityManager;
         auto entity = manager.create();
         auto position = new Position(1001, -19);
         auto jump = new Jump();
@@ -633,6 +703,171 @@ public:
         assert(entity.hasComponent!Jump());
         assert(position == entity.component!Position());
         assert(jump == manager.component!Jump(entity.id));
+    }
+
+    /// Delete all entities and components.
+    void clear() @safe
+    {
+        _indexCounter = 0U;
+        _numEntities = 0U;
+        _freeIndices.clear();
+        _entityTags = null;
+        _components = null;
+        _componentTypes.clear();
+        _componentMasks = null;
+    }
+
+    unittest
+    {
+        class Position
+        {
+            this(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+            int x, y;
+        }
+
+        class Velocity
+        {
+            this(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+            int x, y;
+        }
+
+        class Gravity
+        {
+            this(double acc)
+            {
+                accel = acc;
+            }
+            double accel;
+        }
+
+        auto manager = new EntityManager;
+
+        auto entity1 = manager.create();
+        entity1.add(new Position(2, 1));
+
+        auto entity2 = manager.create();
+        entity2.add(new Velocity(-1, -3));
+
+        auto entity3 = manager.create();
+        entity3.add(new Gravity(-9.8));
+
+        auto position = entity1.component!Position();
+        auto velocity = entity2.component!Velocity();
+        auto gravity = entity3.component!Gravity();
+
+        assert(position.x == 2 && position.y == 1);
+        assert(velocity.x == -1 && velocity.y == -3);
+        assert(std.math.abs(-9.8 - gravity.accel) < 1e-9);
+
+        manager.clear();
+        assert(!entity1.valid());
+        assert(!entity2.valid());
+        assert(!entity3.valid());
+        assert(manager._indexCounter == 0);
+        assert(manager._freeIndices.empty);
+        assert(manager._entityTags.length == 0);
+        assert(manager._components.length == 0);
+        assert(manager._componentMasks.length == 0);
+
+        auto entity4 = manager.create();
+        assert(entity4.valid());
+        assert(entity4.id.index == 0);
+    }
+
+private:
+    void setComponent(C)(ID id, C component) @safe
+    {
+        _components[type!C()][id.index] = component;
+    }
+
+    void setMask(C)(ID id, bool value) @safe
+    {
+        _componentMasks[id.index][type!C()] = value;
+    }
+
+    void accomodateComponent(C)() @safe
+    {
+        if (!hasType!C())
+        {
+            addType!C();
+            auto type = type!C();
+
+            // Expand component array (new component - first dimension widens).
+            if (_components.length < type + 1)
+            {
+                _components ~= new Object[_indexCounter];
+            }
+
+            // Expand all component masks to include new component.
+            if (_componentMasks.length > 0 && _componentMasks[0].length < type + 1)
+            {
+                foreach (ref componentMask; _componentMasks)
+                {
+                    componentMask.length = type + 1;
+                }
+            }
+        }
+    }
+
+    void accomodateEntity(uint index) @safe
+    {
+        if (index >= _indexCounter)
+        {
+            // Expand entity tags.
+            if (_entityTags.length < index + 1)
+            {
+                _entityTags.length = index + 1;
+            }
+
+            // Expand component mask array.
+            if (_componentMasks.length < index + 1)
+            {
+                _componentMasks ~= new bool[_components.length];
+            }
+
+            // Expand all component arrays (new entity - second dimension widens).
+            if (_components.length > 0 && _components[0].length < index + 1)
+            {
+                foreach (ref component; _components)
+                {
+                    component.length = index + 1;
+                }
+            }
+        }
+        _indexCounter = index + 1;
+    }
+
+    ulong type(C)() inout @safe
+    in
+    {
+        assert(hasType!C());
+    }
+    body
+    {
+        return _componentTypes[C.classinfo.name];
+    }
+
+    void addType(C)() @trusted
+    {
+        string name = C.classinfo.name;
+        if (!hasType!C())
+        {
+            _componentTypes[name] = _componentTypes.length;
+            _componentTypes.rehash();
+        }
+    }
+
+    bool hasType(C)() const @safe
+    {
+        return (C.classinfo.name in _componentTypes) !is null;
     }
 
     /// Return the component mask (bool array) of this entity.
@@ -681,7 +916,7 @@ public:
         class Velocity { }
         class Gravity { }
 
-        auto manager = new EntityManager();
+        auto manager = new EntityManager;
         auto entity = manager.create();
         entity.add(new Position());
         entity.add(new Velocity());
@@ -689,167 +924,6 @@ public:
 
         assert(manager.componentMask!(Position)() == [true, false, false]);
         assert(manager.componentMask!(Position, Velocity, Gravity)() == [true, true, true]);
-    }
-
-    /// Delete all entities and components.
-    void clear() @safe
-    {
-        _indexCounter = 0U;
-        _numEntities = 0U;
-        _freeIndices.clear();
-        _entityTags = null;
-        _components = null;
-        _componentTypes.clear();
-        _componentMasks = null;
-    }
-
-    unittest
-    {
-        class Position
-        {
-            this(int x, int y)
-            {
-                this.x = x;
-                this.y = y;
-            }
-            int x, y;
-        }
-
-        class Velocity
-        {
-            this(int x, int y)
-            {
-                this.x = x;
-                this.y = y;
-            }
-            int x, y;
-        }
-
-        class Gravity
-        {
-            this(double acc)
-            {
-                accel = acc;
-            }
-            double accel;
-        }
-
-        auto manager = new EntityManager();
-
-        auto entity1 = manager.create();
-        entity1.add(new Position(2, 1));
-
-        auto entity2 = manager.create();
-        entity2.add(new Velocity(-1, -3));
-
-        auto entity3 = manager.create();
-        entity3.add(new Gravity(-9.8));
-
-        auto position = entity1.component!Position();
-        auto velocity = entity2.component!Velocity();
-        auto gravity = entity3.component!Gravity();
-
-        assert(position.x == 2 && position.y == 1);
-        assert(velocity.x == -1 && velocity.y == -3);
-        assert(std.math.abs(-9.8 - gravity.accel) < 1e-9);
-
-        manager.clear();
-        assert(!entity1.valid());
-        assert(!entity2.valid());
-        assert(!entity3.valid());
-        assert(manager._indexCounter == 0);
-        assert(manager._freeIndices.empty);
-        assert(manager._entityTags.length == 0);
-        assert(manager._components.length == 0);
-        assert(manager._componentMasks.length == 0);
-
-        auto entity4 = manager.create();
-        assert(entity4.valid());
-        assert(entity4.id.index == 0);
-    }
-
-private:
-    /// TODO: fix lines 633 - 639.
-    void accomodateComponent(C)() @safe
-    {
-        if (!hasType!C())
-        {
-            addType!C();
-            auto type = type!C();
-
-            // Expand component array (new component - first dimension widens).
-            if (_components.length < type + 1)
-            {
-                _components ~= new Object[_indexCounter];
-            }
-
-            // Expand all component masks to include new component.
-            if (!_componentMasks.empty() && _componentMasks.front().length < type + 1)
-            {
-                foreach (ref componentMask; _componentMasks)
-                {
-                    componentMask.length = type + 1;
-                }
-            }
-        }
-    }
-
-    void setComponent(C)(ID id, C component) @safe
-    {
-        _components[type!C()][id.index] = component;
-    }
-
-    void accomodateEntity(uint index) @safe
-    {
-        if (index >= _indexCounter)
-        {
-            // Expand entity tags.
-            if (_entityTags.length < index + 1)
-            {
-                _entityTags.length = index + 1;
-            }
-
-            // Expand component mask array.
-            if (_componentMasks.length < index + 1)
-            {
-                _componentMasks ~= new bool[_components.length];
-            }
-
-            // Expand all component arrays (new entity - second dimension widens).
-            if (!_components.empty() && _components.front().length < index + 1)
-            {
-                foreach (ref component; _components)
-                {
-                    component.length = index + 1;
-                }
-            }
-        }
-        _indexCounter = index + 1;
-    }
-
-    ulong type(C)() inout @safe
-    in
-    {
-        assert(hasType!C());
-    }
-    body
-    {
-        return _componentTypes[C.classinfo.name];
-    }
-
-    void addType(C)() @trusted
-    {
-        string name = C.classinfo.name;
-        if (!hasType!C())
-        {
-            _componentTypes[name] = _componentTypes.length;
-            _componentTypes.rehash();
-        }
-    }
-
-    bool hasType(C)() const @safe
-    {
-        return (C.classinfo.name in _componentTypes) !is null;
     }
 
     invariant()
