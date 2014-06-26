@@ -225,6 +225,7 @@ public:
         assert(entity4 == entity4);
     }
 
+    /// Comparison operator.
     override int opCmp(Object o) const @safe
     {
         auto other = cast(Entity) o;
@@ -259,32 +260,38 @@ public:
         _numEntities = 0U;
     }
 
+    /// A range over all entities in the manager.
     struct Range
     {
+        /// Construct a range over this manager.
         private this(EntityManager manager, uint index = 0)  @safe
         {
             _manager = manager;
             _index = index;
         }
 
+        /// Return the number of entities to iterate over (including empty ones).
         size_t length() const @property @safe
         {
-            return _manager.count;
+            return _manager.capacity;
         }
 
-        bool empty() const @property
+        /// Return if an only if the range cannot access any more entities.
+        bool empty() const @property @safe
         {
             return _index >= _manager.capacity;
         }
 
-        Entity front() @property
+        /// Return the current entity.
+        Entity front() @property @safe
         {
             return _manager.entity(_index);
         }
 
+        /// Access the next entity.
         void popFront() @safe
         {
-            if (_index < _manager.capacity)
+            if (!empty)
             {
                 _index++;
             }
@@ -294,6 +301,7 @@ public:
             }
         }
 
+        /// Return a copy of this range.
         Range save() @safe
         {
             return Range(_manager, _index);
@@ -303,6 +311,7 @@ public:
         private uint _index;
     }
 
+    /// Return a range over the entities.
     Range opSlice() @safe
     {
         return Range(this);
@@ -427,21 +436,25 @@ public:
         assert(physicsEntities.empty());
     }
 
+    /// Return the number of entities.
     size_t count() const @property @safe
     {
         return _numEntities;
     }
 
+    /// Return the number of free entity indices.
     size_t free() const @property @safe
     {
         return capacity - count;
     }
 
+    /// Return the maximum capacity of entities before needing reallocation.
     size_t capacity() const @property @safe
     {
         return _indexCounter;
     }
 
+    /// Return if and only if there are no entities.
     bool empty() const @property @safe
     {
         return _numEntities == 0;
@@ -783,16 +796,19 @@ public:
     }
 
 private:
+    // Convenience function to set components.
     void setComponent(C)(ID id, C component) @safe
     {
         _components[type!C()][id.index] = component;
     }
 
+    // Convenience function to set mask bits.
     void setMask(C)(ID id, bool value) @safe
     {
         _componentMasks[id.index][type!C()] = value;
     }
 
+    // Reallocate space for a new component.
     void accomodateComponent(C)() @safe
     {
         if (!hasType!C())
@@ -817,6 +833,7 @@ private:
         }
     }
 
+    // Reallocate space for a new entity.
     void accomodateEntity(uint index) @safe
     {
         if (index >= _indexCounter)
@@ -845,6 +862,7 @@ private:
         _indexCounter = index + 1;
     }
 
+    // Return a unique integer for every component type.
     ulong type(C)() inout @safe
     in
     {
@@ -855,6 +873,7 @@ private:
         return _componentTypes[C.classinfo.name];
     }
 
+    // Create a unique id for a new component type.
     void addType(C)() @trusted
     {
         string name = C.classinfo.name;
@@ -865,12 +884,13 @@ private:
         }
     }
 
+    // Return if this component type has already been assigned a unique id.
     bool hasType(C)() const @safe
     {
         return (C.classinfo.name in _componentTypes) !is null;
     }
 
-    /// Return the component mask (bool array) of this entity.
+    // Return the component mask (bool array) of this entity.
     bool[] componentMask(ID id) @safe
     in
     {
@@ -881,6 +901,7 @@ private:
         return _componentMasks[id.index];
     }
 
+    // Return the component mask with the specified components marked as true.
     bool[] componentMask(Components...)() @safe
     in
     {
@@ -926,6 +947,7 @@ private:
         assert(manager.componentMask!(Position, Velocity, Gravity)() == [true, true, true]);
     }
 
+    // Debugging checks to ensure valid space for new entities and components.
     invariant()
     {
         assert(_numEntities <= _indexCounter);
@@ -944,9 +966,10 @@ private:
         }
     }
 
+    // Tracks the actual number of entities.
     uint _numEntities;
 
-    // Tracks the next unused entity index.
+    // Tracks the next unused entity index (i.e. capacity)..
     uint _indexCounter;
 
     // Tracks entity indices recently freed.
