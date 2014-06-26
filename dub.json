@@ -1,0 +1,10 @@
+{
+    "name": "star-entity",
+    "description": "An open-source D entity-component-system.",
+    "homepage": "https://github.com/jzhu98/star-entity",
+    "authors": ["jzhu98"],
+    "copyright": "Copyright © 2014 James Zhu",
+    "license": "MIT",
+
+    "targetPath": "bin"
+}
