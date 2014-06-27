@@ -5,8 +5,6 @@ import std.algorithm : filter;
 
 debug import std.stdio;
 
-// TODO: implement EntityManager range
-
 /// An id encapsulates an index (unique ulong in an entity manager)
 /// and a tag (to check if the entity is in sync (valid) with the manager).
 struct ID
@@ -913,17 +911,6 @@ private:
     body
     {
         bool[] mask = new bool[_components.length];
-
-        ulong maxType = 0;
-        foreach (C; Components)
-        {
-            auto type = type!C();
-            if (type > maxType)
-            {
-                maxType = type;
-            }
-        }
-
         foreach (C; Components)
         {
             mask[type!C()] = true;
