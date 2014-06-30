@@ -1,9 +1,20 @@
+///
+/// Defines an architecture to manage entities, and several entity-related
+/// events. Components must be defined as classes (for internal storage).
+///
+/// Copyright: Copyright (c) 2014 James Zhu.
+///
+/// License: MIT License (Expat). See accompanying file LICENSE.
+///
+/// Authors: James Zhu <github.com/jzhu98>
+///
+
 module star.entity;
 
 import std.container;
 import std.algorithm : filter;
 
-debug import std.stdio;
+import star.event;
 
 /// An id encapsulates an index (unique ulong in an entity manager)
 /// and a tag (to check if the entity is in sync (valid) with the manager).
@@ -247,15 +258,56 @@ private:
     ID _id;
 }
 
+mixin template EntityEvent()
+{
+    this(Entity entity)
+    {
+        this.entity = entity;
+    }
+    Entity entity;
+}
+
+mixin template ComponentEvent(C)
+{
+    this(Entity entity, C component)
+    {
+        this.entity = entity;
+        this.component = component;
+    }
+    Entity entity;
+    C component;
+}
+
+struct EntityCreatedEvent
+{
+    mixin EntityEvent;
+}
+
+struct EntityDestroyedEvent
+{
+    mixin EntityEvent;
+}
+
+struct ComponentAddedEvent(C)
+{
+    mixin ComponentEvent!C;
+}
+
+struct ComponentRemovedEvent(C)
+{
+    mixin ComponentEvent!C;
+}
+
 /// Manages entities and their associated components.
 class EntityManager
 {
 public:
     /// Construct an empty entity manager.
-    this()
+    this(EventManager events)
     {
         _indexCounter = 0U;
         _numEntities = 0U;
+        _events = events;
     }
 
     /// A range over all entities in the manager.
@@ -318,7 +370,8 @@ public:
             }
             int y;
         }
-        auto manager = new EntityManager;
+
+        auto manager = new EntityManager(new EventManager);
         auto entity1 = manager.create();
         auto entity2 = manager.create();
 
@@ -387,7 +440,7 @@ public:
             double accel;
         }
 
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
 
         auto entity1 = manager.create();
         entity1.add(new Position(2, 1));
@@ -459,7 +512,7 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
         auto entity = manager.create();
         assert(entity == manager.entity(entity.id.index));
     }
@@ -488,7 +541,7 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
         auto entity = manager.create();
         assert(entity == manager.entity(entity.id));
     }
@@ -508,7 +561,7 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
         auto entity = manager.create();
         assert(entity.id == manager.id(entity.id.index));
     }
@@ -521,7 +574,7 @@ public:
 
     unittest
     {
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
         assert(!manager.valid(ID.INVALID));
         assert(manager.valid(manager.create().id));
     }
@@ -554,12 +607,13 @@ public:
         }
 
         _numEntities++;
+        _events.emit(EntityCreatedEvent());
         return new Entity(this, ID(index, _entityTags[index]));
     }
 
     unittest
     {
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
         auto entity1 = manager.create();
         auto entity2 = manager.create();
 
@@ -598,12 +652,13 @@ public:
             _componentMasks[index].clear();
 
             _numEntities--;
+            _events.emit(EntityDestroyedEvent());
         }
     }
 
     unittest
     {
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
         auto entity1 = manager.create();
         auto entity2 = manager.create();
         auto entity3 = manager.create();
@@ -645,6 +700,7 @@ public:
         accomodateComponent!C();
         setComponent!C(id, component);
         setMask!C(id, true);
+        _events.emit(ComponentAddedEvent!C());
     }
 
     /// Remove a component from the entity (no effects if it is not present).
@@ -659,6 +715,7 @@ public:
         {
             setComponent(id, null);
             setMask!C(id, false);
+            _events.emit(ComponentRemovedEvent!C());
         }
     }
 
@@ -701,7 +758,7 @@ public:
             bool onGround = true;
         }
 
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
         auto entity = manager.create();
         auto position = new Position(1001, -19);
         auto jump = new Jump();
@@ -757,7 +814,7 @@ public:
             double accel;
         }
 
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
 
         auto entity1 = manager.create();
         entity1.add(new Position(2, 1));
@@ -921,7 +978,7 @@ private:
         class Velocity { }
         class Gravity { }
 
-        auto manager = new EntityManager;
+        auto manager = new EntityManager(new EventManager);
         auto entity = manager.create();
         entity.add(new Position());
         entity.add(new Velocity());
@@ -970,4 +1027,7 @@ private:
 
     // Bitmasks of each entity's components, ordered by entity and then by component bit.
     bool[][] _componentMasks;
+
+    // Event manager.
+    EventManager _events;
 }
