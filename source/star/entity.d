@@ -866,7 +866,7 @@ private:
     }
     body
     {
-        return _componentTypes[C.classinfo.name];
+        return _componentTypes[C.classinfo];
     }
 
     // Create a unique id for a new component type.
@@ -874,7 +874,7 @@ private:
     {
         if (!hasType!C())
         {
-            _componentTypes[C.classinfo.name] = _componentTypes.length;
+            _componentTypes[C.classinfo] = _componentTypes.length;
             _componentTypes.rehash();
         }
     }
@@ -882,7 +882,7 @@ private:
     // Return if this component type has already been assigned a unique id.
     bool hasType(C)() const pure nothrow @safe
     {
-        return (C.classinfo.name in _componentTypes) !is null;
+        return (C.classinfo in _componentTypes) !is null;
     }
 
     // Return the component mask (bool array) of this entity.
@@ -966,7 +966,7 @@ private:
     Object[][] _components;
 
     // A map associating each component class with a unique unsigned integer.
-    ulong[string] _componentTypes;
+    ulong[ClassInfo] _componentTypes;
 
     // Bitmasks of each entity's components, ordered by entity and then by component bit.
     bool[][] _componentMasks;
