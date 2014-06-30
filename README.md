@@ -116,7 +116,7 @@ class Gravity
 ```
 
 #### Assignment
-To associate these components with an entity, call `Entity.add!C(C component)`:
+To associate these components with an entity, call `Entity.add(C)(C component)`:
 
 ```c++
 entity.add(new Position(1.0, 2.0));
@@ -195,7 +195,98 @@ engine.systems.add(new GravitySystem);
 ```
 
 ### Events
-Events are objects (structs or classes) that
+Events are objects (structs or classes) that indicate something has occured,
+e.g. a collision, button press, mouse event, etc.  
+Instead of setting component flags, events offer a simple way of notifying
+other classes of infrequent data, using callbacks.
+
+#### Event types
+
+Events can be either structs or classes.
+No interfaces or class extension necessary.
+
+```css
+struct Collision
+{
+    Entity first, second;
+}
+```
+
+#### Event emission
+
+Our collision system will emit a Collision object if two objects collide.  
+(Ignore the slow algorithm below without any of that fancy "spatial
+partitioning". This is just an example.)
+
+```cs
+class CollisionSystem : System
+{
+    void configure(EventManager events) { }
+    void update(EntityManager entities, EventManager events, double dt)
+    {
+        foreach(first; entities.entities!(Position))
+        {
+            foreach(second; entities.entites!(Position)())
+            {
+                if (collides(first, second))
+                {
+                    events.emit(Collision {first, second});
+                }
+            }
+        }
+    }
+}
+```
+
+#### Event subscription
+
+Classes intending to receive specific events should implement the
+`Receiver(E)` interface, for events of type E.
+
+```cs
+class DebugSystem : System, Receiver!Collision
+{
+    void configure(EventManager events)
+    {
+        events.subscribe!Collision(this);
+    }
+
+    void update(EntityManager entities, EventManager events, double dt) { }
+
+    void receive(E)(E event) pure nothrow if (is(E : Collision))
+    {
+        try
+        {
+            debug writefln("Entities collided: %s, %s", event.first.id, event.second.id);
+        }
+        catch (Throwable o)
+        {
+        }
+    }
+}
+```
+
+`<sidenote>`  
+For those of you who've made it so far: should `pure nothrow` be enforced upon
+the `receive` callback?  
+`</sidenote>`
+
+A few events are emitted by the **star-entity** library:
+- `EntityCreatedEvent`
+- `EntityDestroyedEvent`
+- `ComponentAddedEvent(C)`
+- `ComponentRemovedEvent(C)`
+
+### Engine
+The engine ties everything together. It allows you to perform everything listed
+above, and manage your own game / input loop.
+
+```c++
+while (true)
+{
+    engine.update(0.02);
+}
+```
 
 ## License
 This code is licensed under the MIT License. See LICENSE for the full text.
