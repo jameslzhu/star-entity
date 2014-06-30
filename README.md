@@ -6,8 +6,8 @@ An open-source entity-component-system, written in D.
 and system management.
 
 This framework is heavily based upon
-[EntityX](github.com/alecthomas/entityx) by alecthomas and some ideas
-from [Ashley](github.com/libgdx/ashley/).
+[EntityX](https://github.com/alecthomas/entityx) by alecthomas and some ideas
+from [Ashley](https://github.com/libgdx/ashley/).
 
 ## Overview
 The framework is modeled after the Entity-Component-System (ECS) architecture, a form
@@ -31,12 +31,12 @@ If the player collided with the wall, the physics system might emit a
 *collision* event.
 
 The article
-[Evolve your Hierarchy](cowboyprogramming.com/2007/01/05/evolve-your-heirachy/)
+[Evolve your Hierarchy](https://cowboyprogramming.com/2007/01/05/evolve-your-heirachy/)
 offers a great introduction and overview of ECS frameworks and how they can
 make your code more modular, more extensible, and simpler.
 
 ## Building
-This project uses the DUB build system, found [here](code.dlang.org/download).
+This project uses the DUB build system, found [here](https://code.dlang.org/download).
 
 To build the project, simply run in the top-level directory
 
