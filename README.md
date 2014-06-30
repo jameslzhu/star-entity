@@ -52,5 +52,150 @@ To use this project as a dependency, add this to your **dub.json**:
 }
 ```
 
+## Usage
+
+Some example code to implement the aforementioned physics system:
+
+### Entities
+`star.entity.Entity` wraps on opaque index (uint) that is used to
+add, remove, or retrieve components in its corresponding
+`star.entity.EntityManager`.
+
+Creating an entity is done by
+
+```c++
+import star.entity;
+
+auto engine = new Engine;
+auto entity = engine.entities.create();
+```
+
+The entity is destroyed by
+```
+entity.destroy();
+```
+
+#### Implementation details:
+- The entity wraps an index (uint) and a tag (uint).
+- `Entity` acts as a *handle*, meaning that multiple `Entities` may refer to
+  the same entity.
+- `Entity.invalidate()` is used to invalidate the handle, meaning it can
+  no longer be used. The data, however, is still intact and is still accessible.
+- `Entity.destroy()` is used to invalidate all handles and deallocate the data,
+  freeing the index for reuse by a new entity.
+- `Entity.valid()` should always be used to check validity before usage.
+- Destruction is done by incrementing the tag; thus making all current
+  `Entities` tags unequal and invalid.
+
+### Components
+Components should be designed to hold data, and have few methods (if any).  
+At the moment, they must be implemented as **classes** (for internal storage), but
+in the future I hope to implement templates properly to enable using POD
+structs.
+
+#### Creation
+Continuing our previous example of a physics system:
+```c++
+class Position
+{
+    this(double x, double y) { this.x = x; this.y = y; }
+    double x, y;
+}
+
+class Velocity
+{
+    this(double x, double y) { this.x = x; this.y = y; }
+    double x, y;
+}
+
+class Gravity
+{
+    this(double accel) { this.accel = accel; }
+    double accel;
+}
+```
+
+#### Assignment
+To associate these components with an entity, call `Entity.add!C(C component)`:
+
+```c++
+entity.add(new Position(1.0, 2.0));
+entity.add(new Velocity(15.0, -2.0));
+entity.add(new Gravity(-9.8));
+```
+
+#### Querying
+To access all entities with specific components, use
+`EntityManager.entities!(Components...)()`:
+
+```cs
+foreach(entity; engine.entities.entities!(Position, Velocity))
+{
+    // Do work with entities containing Position and Velocity components
+}
+```
+
+To access a specific entity's component, use
+`Entity.component!(C)()`:
+
+```c++
+auto velocity = entity.component!Velocity();
+```
+
+### Systems
+Systems implement logic and behavior.  
+They must implement the `star.system.System` interface
+(`configure()` and `update()`)
+
+Continuing our physics example, let's implement a movement and gravity system:
+
+```cs
+class MovementSystem : System
+{
+    void configure(EventManager events) { }
+    void update(EntityManager entities, EventManager events, double dt)
+    {
+        foreach(entity; entities.entities!(Position, Velocity)())
+        {
+            auto position = entity.component!Position();
+            auto velocity = entity.component!Velocity();
+            position.x += velocity.x * dt;
+            position.y += velocity.y * dt;
+        }
+    }
+}
+
+class GravitySystem : System
+{
+    void configure(EventManager events) { }
+    void update(EntityManager entities, EventManager events, double dt)
+    {
+        foreach(entity; entities.entities!(Velocity, Gravity)())
+        {
+            auto gravity = entity.component!gravity();
+            auto velocity = entity.component!Velocity();
+            auto accel = gravity.accel * dt;
+            if (antigravity)
+            {
+                accel = -accel;
+            }
+            velocity.y += accel;
+        }
+    }
+private:
+    bool antigravity = false;
+}
+```
+
+Adding them to the system manager is quite simple:
+
+```c++
+engine.systems.add(new MovementSystem);
+engine.systems.add(new GravitySystem);
+```
+
+### Events
+Events are objects (structs or classes) that
+
 ## License
 This code is licensed under the MIT License. See LICENSE for the full text.
