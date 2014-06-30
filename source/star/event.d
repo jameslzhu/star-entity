@@ -15,7 +15,7 @@ class EventManager
 {
 public:
     /// Subscribe reciever to a certain event E.
-    void subscribe(E)(Receiver!E receiver)
+    void subscribe(E)(Receiver!E receiver) pure nothrow @safe
     {
         auto classinfo = E.classinfo;
         if (classinfo in _receivers)
