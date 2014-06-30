@@ -17,14 +17,14 @@ interface System
 class SystemManager
 {
 public:
-    this(EntityManager entityManager, EventManager eventManager)
+    this(EntityManager entityManager, EventManager eventManager) pure nothrow @safe
     {
         _entityManager = entityManager;
         _eventManager = eventManager;
     }
 
     /// Add a system to the manager.
-    void add(System system)
+    void add(System system) pure nothrow @trusted
     in
     {
         assert((system.classinfo.name in _systems) is null);
@@ -36,13 +36,13 @@ public:
     }
 
     /// Remove a system from the manager.
-    void remove(System system)
+    void remove(System system) pure nothrow @safe
     {
         _systems.remove(system.classinfo.name);
     }
 
     /// Return the specified system.
-    S system(S)()
+    S system(S)() pure nothrow @safe
     {
         auto sys = (S.classinfo.name in _systems);
         if (sys !is null)

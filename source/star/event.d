@@ -4,17 +4,18 @@ private interface BaseReceiver
 {
 }
 
+/// Recieves events of type E.
 interface Receiver(E) : BaseReceiver
 {
     void receive(E event);
 }
 
+/// Manages event subscription and emission.
 class EventManager
 {
 public:
-    this() {}
-
-    void subscribe(E)(Receiver!E receiver)
+    /// Subscribe reciever to a certain event E.
+    void subscribe(E)(Receiver!E receiver) pure nothrow @safe
     {
         auto classinfo = E.classinfo;
         if (classinfo in _receivers)
@@ -27,6 +28,7 @@ public:
         }
     }
 
+    /// Notify all receivers of an event E. Calls their receive callback.
     void emit(E)(E event)
     {
         foreach(r; _receivers[event.classinfo])
