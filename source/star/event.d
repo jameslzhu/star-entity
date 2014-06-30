@@ -7,6 +7,7 @@ private interface BaseReceiver
 /// Recieves events of type E.
 interface Receiver(E) : BaseReceiver
 {
+    /// Event callback for an event E.
     void receive(E event);
 }
 
