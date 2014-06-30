@@ -5,8 +5,6 @@ import std.algorithm : filter;
 
 debug import std.stdio;
 
-// TODO: implement EntityManager range
-
 /// An id encapsulates an index (unique ulong in an entity manager)
 /// and a tag (to check if the entity is in sync (valid) with the manager).
 struct ID
@@ -17,19 +15,19 @@ public:
 
     /// Construct an id from a 64-bit integer:
     /// A concatenated 32-bit index and 32-bit tag.
-    this(ulong id) @safe
+    this(ulong id) pure nothrow @safe
     {
         _id = id;
     }
 
     /// Construct an id from a 32-bit index and a 32-bit tag.
-    this(uint index, uint tag) @safe
+    this(uint index, uint tag) pure nothrow @safe
     {
         this(cast(ulong) index << 32UL | (cast(ulong) tag));
     }
 
     /// Return the index of the ID.
-    inout(uint) index() inout @property @safe
+    inout(uint) index() inout pure nothrow @property @safe
     {
         return cast(uint)(_id >> 32UL);
     }
@@ -43,7 +41,7 @@ public:
     }
 
     /// Return the tag of the ID.
-    inout(uint) tag() inout @property @safe
+    inout(uint) tag() inout pure nothrow @property @safe
     {
         return cast(uint) (_id);
     }
@@ -56,13 +54,13 @@ public:
         assert(id2.tag == 5U);
     }
 
-    string toString() @safe
+    string toString() const pure @safe
     {
         return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
     }
 
     /// Equals operator (check for equality).
-    bool opEquals()(auto ref const ID other) const @safe
+    bool opEquals()(auto ref const ID other) const pure nothrow @safe
     {
         return _id == other._id;
     }
@@ -78,7 +76,7 @@ public:
     }
 
     /// Comparison operators (check for greater / less than).
-    int opCmp(ref const ID other) const @safe
+    int opCmp(ref const ID other) const pure nothrow @safe
     {
         if (_id > other._id)
         {
@@ -114,14 +112,14 @@ class Entity
 {
 public:
     /// Construct an entity with a manager reference and an ID.
-    this(EntityManager manager, ID id) @safe
+    this(EntityManager manager, ID id) pure nothrow @safe
     {
         _manager = manager;
         _id = id;
     }
 
     /// Return the entity id.
-    inout(ID) id() inout @property @safe
+    inout(ID) id() inout pure nothrow @property @safe
     {
         return _id;
     }
@@ -134,38 +132,38 @@ public:
     }
 
     /// Return the component added to this entity.
-    inout(C) component(C)() inout @safe
+    inout(C) component(C)() inout pure nothrow @safe
     {
         return _manager.component!C(_id);
     }
 
     /// Check if the entity has a specific component.
-    bool hasComponent(C)() @safe
+    bool hasComponent(C)() pure nothrow @safe
     {
         return _manager.hasComponent!C(_id);
     }
 
     /// Add a component to the entity.
-    void add(C)(C component) @safe
+    void add(C)(C component) pure nothrow @safe
     {
         _manager.addComponent!C(_id, component);
     }
 
     /// Remove the component if the entity has it.
-    void remove(C)() @safe
+    void remove(C)() pure nothrow @safe
     {
         _manager.remove!C(_id);
     }
 
     /// Destroy this entity and invalidate all handles to this entity.
-    void destroy() @safe
+    void destroy() pure nothrow @safe
     {
         _manager.destroy(_id);
         invalidate();
     }
 
     /// Check if this handle is valid (points to the entity with the same tag).
-    bool valid() @safe
+    bool valid() pure nothrow @safe
     {
         if (_manager is null)
         {
@@ -178,7 +176,7 @@ public:
     }
 
     /// Invalidate this entity handle (but not other handles).
-    void invalidate() @safe
+    void invalidate() pure nothrow @safe
     {
         _manager = null;
         _id = ID.INVALID;
@@ -264,45 +262,38 @@ public:
     struct Range
     {
         /// Construct a range over this manager.
-        private this(EntityManager manager, uint index = 0)  @safe
+        private this(EntityManager manager, uint index = 0) pure nothrow @safe
         {
             _manager = manager;
             _index = index;
         }
 
         /// Return the number of entities to iterate over (including empty ones).
-        size_t length() const @property @safe
+        size_t length() const pure nothrow @property @safe
         {
             return _manager.capacity;
         }
 
         /// Return if an only if the range cannot access any more entities.
-        bool empty() const @property @safe
+        bool empty() const pure nothrow @property @safe
         {
             return _index >= _manager.capacity;
         }
 
         /// Return the current entity.
-        Entity front() @property @safe
+        Entity front() pure nothrow @property @safe
         {
             return _manager.entity(_index);
         }
 
         /// Access the next entity.
-        void popFront() @safe
+        void popFront() pure nothrow @safe
         {
-            if (!empty)
-            {
-                _index++;
-            }
-            else
-            {
-                throw new Exception("Entity manager range out of bounds error");
-            }
+            _index++;
         }
 
         /// Return a copy of this range.
-        Range save() @safe
+        Range save() pure nothrow @safe
         {
             return Range(_manager, _index);
         }
@@ -312,7 +303,7 @@ public:
     }
 
     /// Return a range over the entities.
-    Range opSlice() @safe
+    Range opSlice() pure nothrow @safe
     {
         return Range(this);
     }
@@ -352,7 +343,7 @@ public:
     }
 
     /// Create a range with only the entities with the specified components.
-    auto entities(Components...)()
+    auto entities(Components...)() pure nothrow @safe
     {
         auto mask = componentMask!Components();
         bool hasComponents(Entity entity)
@@ -437,31 +428,31 @@ public:
     }
 
     /// Return the number of entities.
-    size_t count() const @property @safe
+    size_t count() const pure nothrow @property @safe
     {
         return _numEntities;
     }
 
     /// Return the number of free entity indices.
-    size_t free() const @property @safe
+    size_t free() const pure nothrow @property @safe
     {
         return capacity - count;
     }
 
     /// Return the maximum capacity of entities before needing reallocation.
-    size_t capacity() const @property @safe
+    size_t capacity() const pure nothrow @property @safe
     {
         return _indexCounter;
     }
 
     /// Return if and only if there are no entities.
-    bool empty() const @property @safe
+    bool empty() const pure nothrow @property @safe
     {
         return _numEntities == 0;
     }
 
     /// Return the entity with the specified index.
-    Entity entity(uint index) @safe
+    Entity entity(uint index) pure nothrow @safe
     {
         return entity(id(index));
     }
@@ -474,18 +465,25 @@ public:
     }
 
     /// Return the entity with the specified (and valid) id.
-    Entity entity(ID id) @safe
-    in
-    {
-        assert(valid(id));
-    }
+    /// Returns null if the id is invalid.
+    Entity entity(ID id) pure nothrow @safe
     out (result)
     {
-        assert(valid(result.id));
+        if (result !is null)
+        {
+            assert(valid(result.id));
+        }
     }
     body
     {
-        return new Entity(this, id);
+        if (valid(id))
+        {
+            return new Entity(this, id);
+        }
+        else
+        {
+            return null;
+        }
     }
 
     unittest
@@ -496,18 +494,16 @@ public:
     }
 
     /// Return the id with the specified index.
-    ID id(uint index) @safe
-    in
+    ID id(uint index) pure nothrow @safe
     {
-        assert(index < _indexCounter);
-    }
-    out (result)
-    {
-        assert(valid(result));
-    }
-    body
-    {
-        return ID(index, _entityTags[index]);
+        if (index < _indexCounter)
+        {
+            return ID(index, _entityTags[index]);
+        }
+        else
+        {
+            return ID(index, 0);
+        }
     }
 
     unittest
@@ -518,7 +514,7 @@ public:
     }
 
     /// Check if this entity handle is valid - is not invalidated or outdated
-    bool valid(ID id) const @safe
+    bool valid(ID id) const pure nothrow @safe
     {
         return (id.index < _indexCounter && _entityTags[id.index] == id.tag);
     }
@@ -531,7 +527,7 @@ public:
     }
 
     /// Create an entity in a free slot.
-    Entity create() @safe
+    Entity create() pure nothrow @safe
     out (result)
     {
         assert(valid(result.id));
@@ -576,7 +572,7 @@ public:
     }
 
     /// Destroy the specified entity and invalidate all handles to it.
-    void destroy(ID id) @safe
+    void destroy(ID id) pure nothrow @safe
     out
     {
         assert(!valid(id));
@@ -635,7 +631,7 @@ public:
     }
 
     /// Add a component to the specified entity.
-    void addComponent(C)(ID id, C component) @trusted
+    void addComponent(C)(ID id, C component) pure nothrow @safe
     in
     {
         assert(valid(id));
@@ -652,7 +648,7 @@ public:
     }
 
     /// Remove a component from the entity (no effects if it is not present).
-    void removeComponent(C)(ID id) @safe
+    void removeComponent(C)(ID id) pure nothrow @safe
     out
     {
         assert(!hasComponent!C(id));
@@ -667,7 +663,7 @@ public:
     }
 
     /// Check if the entity has the specified component.
-    bool hasComponent(C)(const ID id) const @safe
+    bool hasComponent(C)(const ID id) const pure nothrow @safe
     in
     {
         assert(valid(id));
@@ -678,7 +674,7 @@ public:
     }
 
     /// Return the component associated with this entity.
-    inout(C) component(C)(ID id) inout @safe
+    inout(C) component(C)(ID id) inout pure nothrow @safe
     in
     {
         assert(valid(id));
@@ -719,7 +715,7 @@ public:
     }
 
     /// Delete all entities and components.
-    void clear() @safe
+    void clear() pure nothrow @safe
     {
         _indexCounter = 0U;
         _numEntities = 0U;
@@ -797,19 +793,19 @@ public:
 
 private:
     // Convenience function to set components.
-    void setComponent(C)(ID id, C component) @safe
+    void setComponent(C)(ID id, C component) pure nothrow @safe
     {
         _components[type!C()][id.index] = component;
     }
 
     // Convenience function to set mask bits.
-    void setMask(C)(ID id, bool value) @safe
+    void setMask(C)(ID id, bool value) pure nothrow @safe
     {
         _componentMasks[id.index][type!C()] = value;
     }
 
     // Reallocate space for a new component.
-    void accomodateComponent(C)() @safe
+    void accomodateComponent(C)() pure nothrow @safe
     {
         if (!hasType!C())
         {
@@ -834,7 +830,7 @@ private:
     }
 
     // Reallocate space for a new entity.
-    void accomodateEntity(uint index) @safe
+    void accomodateEntity(uint index) pure nothrow @safe
     {
         if (index >= _indexCounter)
         {
@@ -863,35 +859,34 @@ private:
     }
 
     // Return a unique integer for every component type.
-    ulong type(C)() inout @safe
+    ulong type(C)() inout pure nothrow @safe
     in
     {
         assert(hasType!C());
     }
     body
     {
-        return _componentTypes[C.classinfo.name];
+        return _componentTypes[C.classinfo];
     }
 
     // Create a unique id for a new component type.
-    void addType(C)() @trusted
+    void addType(C)() pure nothrow @trusted
     {
-        string name = C.classinfo.name;
         if (!hasType!C())
         {
-            _componentTypes[name] = _componentTypes.length;
+            _componentTypes[C.classinfo] = _componentTypes.length;
             _componentTypes.rehash();
         }
     }
 
     // Return if this component type has already been assigned a unique id.
-    bool hasType(C)() const @safe
+    bool hasType(C)() const pure nothrow @safe
     {
-        return (C.classinfo.name in _componentTypes) !is null;
+        return (C.classinfo in _componentTypes) !is null;
     }
 
     // Return the component mask (bool array) of this entity.
-    bool[] componentMask(ID id) @safe
+    bool[] componentMask(ID id) pure nothrow @safe
     in
     {
         assert(valid(id));
@@ -902,7 +897,7 @@ private:
     }
 
     // Return the component mask with the specified components marked as true.
-    bool[] componentMask(Components...)() @safe
+    bool[] componentMask(Components...)() pure nothrow @safe
     in
     {
         foreach(C; Components)
@@ -913,17 +908,6 @@ private:
     body
     {
         bool[] mask = new bool[_components.length];
-
-        ulong maxType = 0;
-        foreach (C; Components)
-        {
-            auto type = type!C();
-            if (type > maxType)
-            {
-                maxType = type;
-            }
-        }
-
         foreach (C; Components)
         {
             mask[type!C()] = true;
@@ -982,7 +966,7 @@ private:
     Object[][] _components;
 
     // A map associating each component class with a unique unsigned integer.
-    ulong[string] _componentTypes;
+    ulong[ClassInfo] _componentTypes;
 
     // Bitmasks of each entity's components, ordered by entity and then by component bit.
     bool[][] _componentMasks;
