@@ -17,6 +17,7 @@ interface System
 class SystemManager
 {
 public:
+    /// Constructor taking events and entities.
     this(EntityManager entityManager, EventManager eventManager) pure nothrow @safe
     {
         _entityManager = entityManager;
