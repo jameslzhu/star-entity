@@ -1,3 +1,14 @@
+///
+/// Defines an architecture to manage systems.
+/// Systems must implement the System interface.
+///
+/// Copyright: Copyright (c) 2014 James Zhu.
+///
+/// License: MIT License (Expat). See accompanying file LICENSE.
+///
+/// Authors: James Zhu <github.com/jzhu98>
+///
+
 module star.system;
 
 import star.entity;
@@ -28,7 +39,7 @@ public:
     void add(System system) pure nothrow @trusted
     in
     {
-        assert((system.classinfo.name in _systems) is null);
+        assert(!(system.classinfo.name in _systems));
     }
     body
     {
@@ -46,7 +57,7 @@ public:
     S system(S)() pure nothrow @safe
     {
         auto sys = (S.classinfo.name in _systems);
-        if (sys !is null)
+        if (sys)
         {
             return *sys;
         }
