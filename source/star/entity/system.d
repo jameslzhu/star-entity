@@ -9,10 +9,10 @@
 /// Authors: James Zhu <github.com/jzhu98>
 ///
 
-module star.system;
+module star.entity.system;
 
-import star.entity;
-import star.event;
+import star.entity.entity;
+import star.entity.event;
 
 /// A generic system, encapsulating game logic.
 interface System
