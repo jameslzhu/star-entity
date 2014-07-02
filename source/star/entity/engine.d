@@ -8,11 +8,11 @@
 /// Authors: James Zhu <github.com/jzhu98>
 ///
 
-module star.engine;
+module star.entity.engine;
 
-import star.entity;
-import star.system;
-import star.event;
+import star.entity.entity;
+import star.entity.system;
+import star.entity.event;
 
 /// Encapsulates components, systems, entities, and events.
 class Engine
