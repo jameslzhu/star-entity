@@ -6,8 +6,8 @@ An open-source entity-component-system, written in D.
 and system management.
 
 This framework is heavily based upon
-[EntityX](https://github.com/alecthomas/entityx) by alecthomas and some ideas
-from [Ashley](https://github.com/libgdx/ashley/).
+[EntityX](https://github.com/alecthomas/entityx) by Alec Thomas and some ideas
+from [Ashley](https://github.com/libgdx/ashley), managed by Badlogic Games.
 
 ## Overview
 The framework is modeled after the Entity-Component-System (ECS) architecture, a form

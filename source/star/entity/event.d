@@ -10,11 +10,9 @@
 /// Authors: James Zhu <github.com/jzhu98>
 ///
 
-module star.event;
+module star.entity.event;
 
 import std.traits;
-
-debug import std.stdio;
 
 private interface BaseReceiver
 {

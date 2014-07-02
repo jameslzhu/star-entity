@@ -9,12 +9,12 @@
 /// Authors: James Zhu <github.com/jzhu98>
 ///
 
-module star.entity;
+module star.entity.entity;
 
 import std.container;
 import std.algorithm : filter;
 
-import star.event;
+import star.entityevent;
 
 /// An id encapsulates an index (unique ulong in an entity manager)
 /// and a tag (to check if the entity is in sync (valid) with the manager).
