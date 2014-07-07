@@ -14,7 +14,7 @@ module star.entity.entity;
 import std.container;
 import std.algorithm : filter;
 
-import star.entityevent;
+import star.entity.event;
 
 /// An id encapsulates an index (unique ulong in an entity manager)
 /// and a tag (to check if the entity is in sync (valid) with the manager).
