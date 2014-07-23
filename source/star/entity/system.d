@@ -85,7 +85,7 @@ public:
     }
     body
     {
-        _systems[S.classinfo.name].update(_entitySystem, dt);
+        _systems[S.classinfo.name].update(_entityManager, _eventManager, dt);
     }
 
 private:
