@@ -401,12 +401,8 @@ public:
         auto mask = componentMask!Components();
         bool hasComponents(Entity entity)
         {
-            import std.stdio;
             typeof(mask) combinedMask;
             combinedMask[] = componentMask(entity.id)[] & mask[];
-            writeln(mask);
-            writeln(componentMask(entity.id));
-            writeln(combinedMask);
             return combinedMask[] == mask[];
         }
 
