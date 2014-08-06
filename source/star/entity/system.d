@@ -11,6 +11,8 @@
 
 module star.entity.system;
 
+import std.traits : fullyQualifiedName;
+
 import star.entity.entity;
 import star.entity.event;
 
@@ -36,7 +38,7 @@ public:
     }
 
     /// Add a system to the manager.
-    void add(System system) pure nothrow @trusted
+    void add(S)(S system) pure nothrow @trusted if (is (S : System))
     in
     {
         assert(!(system.classinfo.name in _systems));
@@ -48,7 +50,7 @@ public:
     }
 
     /// Remove a system from the manager.
-    void remove(System system) pure nothrow @safe
+    void remove(S)(S system) pure nothrow @safe
     {
         _systems.remove(system.classinfo.name);
     }
