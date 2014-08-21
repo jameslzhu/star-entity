@@ -399,9 +399,10 @@ public:
     auto entities(Components...)() pure nothrow @safe
     {
         auto mask = componentMask!Components();
+
         bool hasComponents(Entity entity)
         {
-            typeof(mask) combinedMask;
+            bool[] combinedMask = new bool[mask.length];
             combinedMask[] = componentMask(entity.id)[] & mask[];
             return combinedMask[] == mask[];
         }
