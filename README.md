@@ -48,7 +48,7 @@ To use this project as a dependency, add this to your **dub.json**:
 
 ```json
 "dependencies": {
-    "star-entity": ">=1.0.0"
+    "star-entity": ">=1.0.5"
 }
 ```
 
