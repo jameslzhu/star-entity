@@ -650,7 +650,7 @@ public:
             }
 
             // Clear the component bitmask
-            _componentMasks[index].clear();
+            _componentMasks[index] = null;
 
             _numEntities--;
             _events.emit(EntityDestroyedEvent());
@@ -780,7 +780,7 @@ public:
         _freeIndices.clear();
         _entityTags = null;
         _components = null;
-        _componentTypes.clear();
+        _componentTypes = null;
         _componentMasks = null;
     }
 
