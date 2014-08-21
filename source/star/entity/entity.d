@@ -399,9 +399,10 @@ public:
     auto entities(Components...)() pure nothrow @safe
     {
         auto mask = componentMask!Components();
+
         bool hasComponents(Entity entity)
         {
-            typeof(mask) combinedMask;
+            bool[] combinedMask = new bool[mask.length];
             combinedMask[] = componentMask(entity.id)[] & mask[];
             return combinedMask[] == mask[];
         }
@@ -649,7 +650,7 @@ public:
             }
 
             // Clear the component bitmask
-            _componentMasks[index].clear();
+            _componentMasks[index] = null;
 
             _numEntities--;
             _events.emit(EntityDestroyedEvent());
@@ -779,7 +780,7 @@ public:
         _freeIndices.clear();
         _entityTags = null;
         _components = null;
-        _componentTypes.clear();
+        _componentTypes = null;
         _componentMasks = null;
     }
 
