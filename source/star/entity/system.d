@@ -96,3 +96,49 @@ private:
     System[string] _systems;
     bool _configured = false;
 }
+
+unittest
+{
+    class MovementSystem : System
+    {
+        void configure(EventManager events) { }
+        void update(EntityManager entities, EventManager events, double dt)
+        {
+            foreach(entity; entities.entities!(Position, Velocity)())
+            {
+                auto position = entity.component!Position();
+                auto velocity = entity.component!Velocity();
+                position.x += velocity.x * dt;
+                position.y += velocity.y * dt;
+            }
+        }
+    }
+    
+    class GravitySystem : System
+    {
+        void configure(EventManager events) { }
+        void update(EntityManager entities, EventManager events, double dt)
+        {
+            foreach(entity; entities.entities!(Velocity, Gravity)())
+            {
+                auto gravity = entity.component!gravity();
+                auto velocity = entity.component!Velocity();
+                auto accel = gravity.accel * dt;
+                if (antigravity)
+                {
+                    accel = -accel;
+                }
+                velocity.y += accel;
+            }
+        }
+    private:
+        bool antigravity = false;
+    }
+    
+    auto engine = new Engine;
+    engine.systems.add(new MovementSystem);
+    engine.systems.add(new GravitySystem);
+    
+    engine.systems.update!GravitySystem;
+    engine.systems.update!MovementSystem;
+}
