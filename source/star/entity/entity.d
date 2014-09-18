@@ -916,7 +916,7 @@ private:
     }
 
     // Return a unique integer for every component type.
-    ulong type(C)() inout pure nothrow @safe
+    size_t type(C)() inout pure nothrow @safe
     in
     {
         assert(hasType!C());
@@ -1023,7 +1023,7 @@ private:
     Object[][] _components;
 
     // A map associating each component class with a unique unsigned integer.
-    ulong[ClassInfo] _componentTypes;
+    size_t[ClassInfo] _componentTypes;
 
     // Bitmasks of each entity's components, ordered by entity and then by component bit.
     bool[][] _componentMasks;
