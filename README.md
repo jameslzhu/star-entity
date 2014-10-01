@@ -5,8 +5,8 @@ An open-source entity-component-system, written in D.
 **star-entity** offers component management, entity creation, event delivery,
 and system management.
 
-This framework is heavily based upon
-[EntityX](https://github.com/alecthomas/entityx) by Alec Thomas and some ideas
+This framework is essentially a D port of
+[EntityX](https://github.com/alecthomas/entityx) by Alec Thomas, with some features
 from [Ashley](https://github.com/libgdx/ashley), managed by Badlogic Games.
 
 ## Overview
@@ -44,11 +44,11 @@ To build the project, simply run in the top-level directory
 dub build --build=release
 ```
 
-To use this project as a dependency, add this to your **dub.json**:
+To use this project as a dependency, add the latest version (see [Releases](https://github.com/jzhu98/star-entity/releases)) to your **dub.json**:
 
 ```json
 "dependencies": {
-    "star-entity": ">=1.0.5"
+    "star-entity": "~>1.0.6"
 }
 ```
 
