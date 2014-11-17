@@ -11,8 +11,9 @@
 
 module star.entity.entity;
 
-import std.container;
 import std.algorithm : filter;
+import std.container : SList;
+import std.conv : to;
 
 import star.entity.event;
 
@@ -65,7 +66,7 @@ public:
         assert(id2.tag == 5U);
     }
 
-    string toString() const pure @safe
+    string toString() const pure nothrow @safe
     {
         return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
     }
@@ -119,7 +120,7 @@ private:
 }
 
 /// An entity an aggregate of components (pure data), accessible with an id.
-class Entity
+struct Entity
 {
 public:
     /// Construct an entity with a manager reference and an ID.
@@ -137,7 +138,7 @@ public:
 
     unittest
     {
-        auto entity = new Entity(null, ID(1, 2));
+        auto entity = Entity(null, ID(1, 2));
         assert(entity.id.index == 1);
         assert(entity.id.tag == 2);
     }
@@ -195,23 +196,22 @@ public:
 
     unittest
     {
-        auto entity = new Entity(null, ID.INVALID);
+        auto entity = Entity(null, ID.INVALID);
         assert(!entity.valid());
     }
 
     /// Equals operator (check for equality).
-    override bool opEquals(Object o) const
+    bool opEquals()(auto ref const Entity other) const pure nothrow @safe
     {
-        auto other = cast(Entity) o;
-        return _id == other._id && _manager == other._manager;
+        return _id == other._id && _manager is other._manager;
     }
 
     unittest
     {
-        auto entity1 = new Entity(null, ID(1, 1));
-        auto entity2 = new Entity(null, ID(1, 1));
-        auto entity3 = new Entity(null, ID(1, 2));
-        auto entity4 = new Entity(null, ID(2, 1));
+        auto entity1 = Entity(null, ID(1, 1));
+        auto entity2 = Entity(null, ID(1, 1));
+        auto entity3 = Entity(null, ID(1, 2));
+        auto entity4 = Entity(null, ID(2, 1));
 
         assert(entity1 == entity1);
         assert(entity1 == entity2);
@@ -235,17 +235,16 @@ public:
     }
 
     /// Comparison operator.
-    override int opCmp(Object o) const @safe
+    int opCmp(ref const Entity other) const pure nothrow @safe
     {
-        auto other = cast(Entity) o;
         return _id.opCmp(other._id);
     }
 
     unittest
     {
-        auto entity1 = new Entity(null, ID(0, 1));
-        auto entity2 = new Entity(null, ID(10, 230));
-        auto entity3 = new Entity(null, ID(11, 200));
+        auto entity1 = Entity(null, ID(0, 1));
+        auto entity2 = Entity(null, ID(10, 230));
+        auto entity3 = Entity(null, ID(11, 200));
 
         assert(entity1 < entity2);
         assert(entity1 <= entity3);
@@ -303,7 +302,7 @@ class EntityManager
 {
 public:
     /// Construct an empty entity manager.
-    this(EventManager events)
+    this(EventManager events) nothrow @safe
     {
         _indexCounter = 0U;
         _numEntities = 0U;
@@ -519,11 +518,11 @@ public:
     }
 
     /// Return the entity with the specified (and valid) id.
-    /// Returns null if the id is invalid.
+    /// Returns INVALID if the id is invalid.
     Entity entity(ID id) pure nothrow @safe
     out (result)
     {
-        if (result !is null)
+        if (result.id != ID.INVALID)
         {
             assert(valid(result.id));
         }
@@ -532,11 +531,11 @@ public:
     {
         if (valid(id))
         {
-            return new Entity(this, id);
+            return Entity(this, id);
         }
         else
         {
-            return null;
+            return Entity(this, ID.INVALID);
         }
     }
 
@@ -609,7 +608,7 @@ public:
 
         _numEntities++;
         _events.emit(EntityCreatedEvent());
-        return new Entity(this, ID(index, _entityTags[index]));
+        return Entity(this, ID(index, _entityTags[index]));
     }
 
     unittest

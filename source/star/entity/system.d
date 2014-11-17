@@ -96,3 +96,98 @@ private:
     System[string] _systems;
     bool _configured = false;
 }
+
+unittest
+{
+    import std.math;
+    class Position
+    {
+        this(double x, double y)
+        {
+            this.x = x;
+            this.y = y;
+        }
+        double x, y;
+    }
+
+    class Velocity
+    {
+        this(double x, double y)
+        {
+            this.x = x;
+            this.y = y;
+        }
+        double x, y;
+    }
+
+    class Gravity
+    {
+        this(double acc)
+        {
+            accel = acc;
+        }
+        double accel;
+    }
+        
+    class MovementSystem : System
+    {
+        void configure(EventManager events) { }
+        void update(EntityManager entities, EventManager events, double dt)
+        {
+            foreach(entity; entities.entities!(Position, Velocity)())
+            {
+                auto position = entity.component!Position();
+                auto velocity = entity.component!Velocity();
+                position.x += velocity.x * dt;
+                position.y += velocity.y * dt;
+            }
+        }
+    }
+    
+    class GravitySystem : System
+    {
+        void configure(EventManager events) { }
+        void update(EntityManager entities, EventManager events, double dt)
+        {
+            foreach(entity; entities.entities!(Velocity, Gravity)())
+            {
+                auto gravity = entity.component!Gravity();
+                auto velocity = entity.component!Velocity();
+                auto accel = gravity.accel * dt;
+                if (antigravity)
+                {
+                    accel = -accel;
+                }
+                velocity.y += accel;
+            }
+        }
+    private:
+        bool antigravity = false;
+    }
+    
+    auto engine = new star.entity.engine.Engine;
+    
+    auto entity = engine.entities.create();
+    
+    entity.add(new Position(0.0, 0.0));
+    entity.add(new Velocity(1.0, 0.0));
+    entity.add(new Gravity(-9.8));
+    
+    engine.systems.add(new MovementSystem);
+    engine.systems.add(new GravitySystem);
+    
+    engine.systems.configure();
+    
+    // Simulate for 1 second
+    enum iterations = 1000;
+    foreach (i; 0 .. iterations)
+    {
+        engine.systems.update!GravitySystem(cast(double) 1 / iterations);
+        engine.systems.update!MovementSystem(cast(double) 1 / iterations);
+    }
+    
+    assert(approxEqual(entity.component!Velocity.x, 1.0));
+    assert(approxEqual(entity.component!Velocity.y, -9.8));
+    assert(approxEqual(entity.component!Position.x, 1.0));
+    assert(approxEqual(entity.component!Position.y, -4.9));
+}
