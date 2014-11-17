@@ -11,8 +11,9 @@
 
 module star.entity.entity;
 
-import std.container;
 import std.algorithm : filter;
+import std.container : SList;
+import std.conv : to;
 
 import star.entity.event;
 
@@ -65,7 +66,7 @@ public:
         assert(id2.tag == 5U);
     }
 
-    string toString() const pure @safe
+    string toString() const pure nothrow @safe
     {
         return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
     }
@@ -200,7 +201,7 @@ public:
     }
 
     /// Equals operator (check for equality).
-    bool opEquals()(auto ref const Entity other) const pure nothrow @trusted
+    bool opEquals()(auto ref const Entity other) const pure nothrow @safe
     {
         return _id == other._id && _manager is other._manager;
     }
@@ -301,7 +302,7 @@ class EntityManager
 {
 public:
     /// Construct an empty entity manager.
-    this(EventManager events)
+    this(EventManager events) nothrow @safe
     {
         _indexCounter = 0U;
         _numEntities = 0U;
