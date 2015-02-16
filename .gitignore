@@ -1,3 +1,5 @@
 .dub/
 bin/
 docs/
+docs.json
+__dummy.html
