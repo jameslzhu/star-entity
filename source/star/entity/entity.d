@@ -21,25 +21,28 @@ import star.entity.event;
 /// and a tag (to check if the entity is in sync (valid) with the manager).
 struct ID
 {
-public:
+    private ulong _id;
+
     /// An invalid id, used for invalidating entities.
-    static immutable ID INVALID = ID(0, 0);
+    static immutable(ID) INVALID = ID(0, 0);
+
+    const pure nothrow @safe:
 
     /// Construct an id from a 64-bit integer:
     /// A concatenated 32-bit index and 32-bit tag.
-    this(ulong id) pure nothrow @safe
+    this(ulong id)
     {
         _id = id;
     }
 
     /// Construct an id from a 32-bit index and a 32-bit tag.
-    this(uint index, uint tag) pure nothrow @safe
+    this(uint index, uint tag)
     {
         this(cast(ulong) index << 32UL | (cast(ulong) tag));
     }
 
     /// Return the index of the ID.
-    inout(uint) index() inout pure nothrow @property @safe
+    uint index() @property
     {
         return cast(uint)(_id >> 32UL);
     }
@@ -53,7 +56,7 @@ public:
     }
 
     /// Return the tag of the ID.
-    inout(uint) tag() inout pure nothrow @property @safe
+    uint tag() @property
     {
         return cast(uint) (_id);
     }
@@ -66,13 +69,13 @@ public:
         assert(id2.tag == 5U);
     }
 
-    string toString() const pure nothrow @safe
+    string toString()
     {
         return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
     }
 
     /// Equals operator (check for equality).
-    bool opEquals()(auto ref const ID other) const pure nothrow @safe
+    bool opEquals(ID other)
     {
         return _id == other._id;
     }
@@ -88,7 +91,7 @@ public:
     }
 
     /// Comparison operators (check for greater / less than).
-    int opCmp(ref const ID other) const pure nothrow @safe
+    int opCmp(ID other)
     {
         if (_id > other._id)
         {
@@ -114,24 +117,22 @@ public:
         assert(id3 >= id2);
         assert(id3 > id1);
     }
-
-private:
-    ulong _id;
 }
 
 /// An entity an aggregate of components (pure data), accessible with an id.
 struct Entity
 {
-public:
+    pure nothrow @safe:
+
     /// Construct an entity with a manager reference and an ID.
-    this(EntityManager manager, ID id) pure nothrow @safe
+    this(EntityManager manager, immutable ID id)
     {
         _manager = manager;
         _id = id;
     }
 
     /// Return the entity id.
-    inout(ID) id() inout pure nothrow @property @safe
+    inout(ID) id() inout @property
     {
         return _id;
     }
@@ -144,38 +145,38 @@ public:
     }
 
     /// Return the component added to this entity.
-    inout(C) component(C)() inout pure nothrow @safe
+    inout(C) component(C)() inout
     {
         return _manager.component!C(_id);
     }
 
     /// Check if the entity has a specific component.
-    bool hasComponent(C)() pure nothrow @safe
+    bool hasComponent(C)() const
     {
         return _manager.hasComponent!C(_id);
     }
 
     /// Add a component to the entity.
-    void add(C)(C component) pure nothrow @safe
+    void add(C)(C component)
     {
         _manager.addComponent!C(_id, component);
     }
 
     /// Remove the component if the entity has it.
-    void remove(C)() pure nothrow @safe
+    void remove(C)()
     {
         _manager.remove!C(_id);
     }
 
     /// Destroy this entity and invalidate all handles to this entity.
-    void destroy() pure nothrow @safe
+    void destroy()
     {
         _manager.destroy(_id);
         invalidate();
     }
 
     /// Check if this handle is valid (points to the entity with the same tag).
-    bool valid() pure nothrow @safe
+    bool valid() const
     {
         if (_manager is null)
         {
@@ -188,7 +189,7 @@ public:
     }
 
     /// Invalidate this entity handle (but not other handles).
-    void invalidate() pure nothrow @safe
+    void invalidate()
     {
         _manager = null;
         _id = ID.INVALID;
@@ -201,7 +202,7 @@ public:
     }
 
     /// Equals operator (check for equality).
-    bool opEquals()(auto ref const Entity other) const pure nothrow @safe
+    bool opEquals(const Entity other) const
     {
         return _id == other._id && _manager is other._manager;
     }
@@ -235,7 +236,7 @@ public:
     }
 
     /// Comparison operator.
-    int opCmp(ref const Entity other) const pure nothrow @safe
+    int opCmp(const Entity other) const
     {
         return _id.opCmp(other._id);
     }
@@ -300,7 +301,6 @@ struct ComponentRemovedEvent(C)
 /// Manages entities and their associated components.
 class EntityManager
 {
-public:
     /// Construct an empty entity manager.
     this(EventManager events) nothrow @safe
     {
