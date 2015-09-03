@@ -48,7 +48,7 @@ To use this project as a dependency, add the latest version (see [Releases](http
 
 ```json
 "dependencies": {
-    "star-entity": "~>1.0.6"
+    "star-entity": "~>1.0.7"
 }
 ```
 
