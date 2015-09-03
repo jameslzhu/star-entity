@@ -12,6 +12,7 @@
 module star.entity.entity;
 
 import std.container;
+import std.conv;
 import std.algorithm : filter;
 
 import star.entity.event;
@@ -67,7 +68,7 @@ public:
 
     string toString() const pure @safe
     {
-        return "ID(" ~ std.conv.to!string(this.index) ~ ", " ~ std.conv.to!string(this.tag) ~ ")";
+        return "ID(" ~ to!string(this.index) ~ ", " ~ to!string(this.tag) ~ ")";
     }
 
     /// Equals operator (check for equality).
