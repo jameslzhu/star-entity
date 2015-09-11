@@ -14,6 +14,7 @@ module star.entity.entity;
 import std.container;
 import std.conv;
 import std.algorithm : filter;
+import std.math : abs;
 
 import star.entity.event;
 
@@ -399,6 +400,14 @@ public:
     /// Create a range with only the entities with the specified components.
     auto entities(Components...)() pure nothrow @safe
     {
+        foreach(C; Components)
+        {
+            if (!hasType!C())
+            {
+                return [];
+            }
+        }
+
         auto mask = componentMask!Components();
 
         bool hasComponents(Entity entity)
@@ -833,7 +842,7 @@ public:
 
         assert(position.x == 2 && position.y == 1);
         assert(velocity.x == -1 && velocity.y == -3);
-        assert(std.math.abs(-9.8 - gravity.accel) < 1e-9);
+        assert(abs(-9.8 - gravity.accel) < 1e-9);
 
         manager.clear();
         assert(!entity1.valid());
