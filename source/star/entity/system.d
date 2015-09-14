@@ -56,12 +56,11 @@ public:
     }
 
     /// Return the specified system.
-    S system(S)() pure nothrow @safe
+    inout(S) system(S)() inout pure nothrow @safe
     {
-        auto sys = (S.classinfo.name in _systems);
-        if (sys)
+        if (S.classinfo.name in _systems)
         {
-            return *sys;
+            return cast(inout(S)) _systems[S.classinfo.name];
         }
         else
         {
